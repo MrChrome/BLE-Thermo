@@ -1,24 +1,138 @@
-//
-//  ContentView.swift
-//  BLESensors
-//
-//  Created by Marc Santa on 3/8/26.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    var store: SensorStore
+    @State private var renamingSensor: SensorReading?
+    @State private var renameText = ""
+    @State private var showRSSI = false
+    @State private var eventMonitor: Any?
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if store.sensors.isEmpty {
+                ContentUnavailableView(
+                    "Scanning for Sensors",
+                    systemImage: "sensor.tag.radiowaves.forward",
+                    description: Text("Looking for nearby Govee BLE sensors…")
+                )
+                .frame(minHeight: 200)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(store.sensors) { sensor in
+                        SensorRow(sensor: sensor, showRSSI: showRSSI)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                renameText = sensor.alias.isEmpty ? sensor.name : sensor.alias
+                                renamingSensor = sensor
+                            }
+                        if sensor.id != store.sensors.last?.id {
+                            Divider().padding(.leading, 12)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
         }
-        .padding()
+        .navigationTitle("BLE Thermo")
+        .frame(width: 272)
+        .alert("Rename Sensor", isPresented: Binding(
+            get: { renamingSensor != nil },
+            set: { if !$0 { renamingSensor = nil } }
+        )) {
+            TextField("Name", text: $renameText)
+            Button("Save") {
+                if let sensor = renamingSensor {
+                    store.rename(id: sensor.id, alias: renameText)
+                }
+                renamingSensor = nil
+            }
+            Button("Cancel", role: .cancel) {
+                renamingSensor = nil
+            }
+        } message: {
+            if let sensor = renamingSensor {
+                Text(sensor.name)
+            }
+        }
+        .onAppear {
+            eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+                showRSSI = event.modifierFlags.contains(.shift)
+                return event
+            }
+        }
+        .onDisappear {
+            if let monitor = eventMonitor {
+                NSEvent.removeMonitor(monitor)
+                eventMonitor = nil
+            }
+        }
     }
 }
 
-#Preview {
-    ContentView()
+struct SensorRow: View {
+    let sensor: SensorReading
+    var showRSSI: Bool
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(sensor.displayName)
+                    .font(.headline)
+                HStack(spacing: 6) {
+                    Text(String(format: "%.1f°F", sensor.tempF))
+                        .foregroundStyle(.blue)
+                    Text("·").foregroundStyle(.secondary)
+                    Text(String(format: "%.1f%%", sensor.humidity))
+                        .foregroundStyle(.green)
+                    if showRSSI {
+                        Text("·").foregroundStyle(.secondary)
+                        Text("\(sensor.rssi) dBm")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .font(.subheadline)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 3) {
+                BatteryView(pct: sensor.battery)
+                if showRSSI || sensor.lastSeen.timeIntervalSinceNow < -60 {
+                    Text(sensor.lastSeen, format: .dateTime.hour().minute())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct BatteryView: View {
+    let pct: Int
+
+    private var color: Color { pct >= 50 ? .green : pct >= 25 ? .yellow : .red }
+    private var filled: Int  { Int((Double(pct) / 100.0 * 4).rounded()) }
+
+    var body: some View {
+        HStack(spacing: 1) {
+            HStack(spacing: 2) {
+                ForEach(0..<4, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(i < filled ? color : Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 1)
+                                .stroke(Color.secondary.opacity(0.4), lineWidth: 0.5)
+                        )
+                        .frame(width: 5, height: 9)
+                }
+            }
+            .padding(2)
+            .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.secondary, lineWidth: 1))
+
+            RoundedRectangle(cornerRadius: 1)
+                .fill(Color.secondary)
+                .frame(width: 2, height: 5)
+        }
+    }
 }

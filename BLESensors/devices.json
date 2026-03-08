@@ -1,0 +1,37 @@
+[
+  {
+    "uuid": "B1D5B3A5-D636-0254-7B0C-1777190FA3CF",
+    "name": "GVH5075_CD35",
+    "alias": "Peter Room"
+  },
+  {
+    "uuid": "9E0C737C-0E40-988C-FC95-AFB8B6316131",
+    "name": "GVH5075_4B19",
+    "alias": "Main Bedroom"
+  },
+  {
+    "uuid": "DC80E380-485F-737A-526A-2E7C45F5C39A",
+    "name": "GVH5075_436B",
+    "alias": "Marc Office"
+  },
+  {
+    "uuid": "227E1FC4-5FBA-E751-DE22-751A26143089",
+    "name": "GVH5075_4DA1",
+    "alias": "Basement"
+  },
+  {
+    "uuid": "1EE606FB-4680-2946-B9F5-F18072D3349E",
+    "name": "GVH5075_FCA3",
+    "alias": "Basement Room"
+  },
+  {
+    "uuid": "5F34D30E-EC76-4C08-BCB5-52C6E55B055E",
+    "name": "GVH5075_FD25",
+    "alias": "Kitchen"
+  },
+  {
+    "uuid": "D8EE678F-2183-D925-6B7C-E12F382A947E",
+    "name": "GVH5075_1669",
+    "alias": "Attic"
+  }
+]
