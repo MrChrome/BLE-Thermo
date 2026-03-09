@@ -1,12 +1,16 @@
 import Foundation
 import HAP
 
-class HomeKitBridge {
+class HomeKitBridge: AccessoryDelegate {
     let device: Device
     private let server: Server
 
     var setupCode: String { device.setupCode }
     private var accessories: [UUID: (accessory: Accessory.Thermometer, humidity: Service.HumiditySensor, battery: Service.Battery)] = [:]
+
+    // LED strip
+    private var lightbulb: Accessory.Lightbulb?
+    var ledController: LEDStripController?
 
     init() throws {
         let storageURL = FileManager.default
@@ -19,15 +23,53 @@ class HomeKitBridge {
 
         let storage = FileStorage(filename: storageURL.path)
 
+        // Add the LED strip as a permanent accessory
+        let bulb = Accessory.Lightbulb(
+            info: Service.Info(name: "LED Strip", serialNumber: "LED-001"),
+            type: .color,
+            isDimmable: true
+        )
+        lightbulb = bulb
+
         device = Device(
             bridgeInfo: Service.Info(name: "BLE Thermo", serialNumber: "BT-001"),
             setupCode: .random,
             storage: storage,
-            accessories: []
+            accessories: [bulb]
         )
 
         server = try Server(device: device, listenPort: 0)
+
+        bulb.delegate = self
     }
+
+    // MARK: - AccessoryDelegate
+
+    func characteristic<T>(_ characteristic: GenericCharacteristic<T>,
+                            ofService service: Service,
+                            ofAccessory accessory: Accessory,
+                            didChangeValue newValue: T?) {
+        guard accessory === lightbulb, let led = ledController else { return }
+
+        switch characteristic.type {
+        case .powerState:
+            if let on = newValue as? Bool { led.setPower(on) }
+        case .brightness:
+            if let pct = newValue as? Int { led.setBrightness(pct) }
+        case .hue:
+            let h = (newValue as? Float) ?? lightbulb?.lightbulb.hue?.value ?? 0
+            let s = lightbulb?.lightbulb.saturation?.value ?? 0
+            led.setColor(hue: h, saturation: s)
+        case .saturation:
+            let h = lightbulb?.lightbulb.hue?.value ?? 0
+            let s = (newValue as? Float) ?? lightbulb?.lightbulb.saturation?.value ?? 0
+            led.setColor(hue: h, saturation: s)
+        default:
+            break
+        }
+    }
+
+    // MARK: - Temperature sensors
 
     func addSensor(_ sensor: SensorReading) {
         guard accessories[sensor.id] == nil else { return }

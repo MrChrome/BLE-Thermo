@@ -5,32 +5,65 @@ class BluetoothScanner {
     private let store: SensorStore
     private let configs: [String: DeviceConfig]
     private let delegate: ObjCBLEDelegate
+    private var ledPeripheral: CBPeripheral?
 
     init(store: SensorStore) {
-        self.store   = store
-        self.configs = DeviceAliases.load()
+        self.store    = store
+        self.configs  = DeviceAliases.load()
         self.delegate = ObjCBLEDelegate()
 
-        delegate.onDiscover = { [weak self] peripheral, mfrData, rssi in
-            guard let self,
-                  let peripheral,
-                  let mfrData,
-                  let rssi,
-                  let reading = Self.decodeGovee(Data(mfrData)) else { return }
+        delegate.onDiscover = { [weak self] peripheral, mfrData, rssi, localName in
+            guard let self, let peripheral, let rssi else { return }
 
-            let name   = peripheral.name ?? peripheral.identifier.uuidString.prefix(8).description
+            let uuid = peripheral.identifier
+            let name = (peripheral.name ?? localName ?? uuid.uuidString.prefix(8).description).trimmingCharacters(in: .whitespaces)
+
+            // Handle explicitly tracked non-sensor devices
+            if let displayName = trackedDeviceNames[name] {
+                DispatchQueue.main.async {
+                    self.store.updateDevice(uuid: uuid, name: displayName, rssi: rssi.intValue)
+                }
+                // Connect if we don't have a controller yet and aren't already connecting
+                if self.ledPeripheral == nil {
+                    self.ledPeripheral = peripheral
+                    self.delegate.beginConnection(peripheral)
+                }
+                return
+            }
+
+            // Handle Govee temperature sensors
+            guard let mfrData, let reading = Self.decodeGovee(Data(mfrData)) else { return }
+
             let config = self.configs[name]
+            DispatchQueue.main.async {
+                self.store.update(
+                    uuid:     uuid,
+                    name:     name,
+                    alias:    config?.alias ?? "",
+                    homekit:  config?.homekit ?? false,
+                    tempF:    reading.tempF,
+                    humidity: reading.humidity,
+                    battery:  reading.battery,
+                    rssi:     rssi.intValue as Int
+                )
+            }
+        }
 
-            self.store.update(
-                uuid:     peripheral.identifier,
-                name:     name,
-                alias:    config?.alias ?? "",
-                homekit:  config?.homekit ?? false,
-                tempF:    reading.tempF,
-                humidity: reading.humidity,
-                battery:  reading.battery,
-                rssi:     rssi.intValue as Int
+        delegate.onConnect = { [weak self] peripheral, writeChar in
+            guard let self, let peripheral, let writeChar else { return }
+            let controller = LEDStripController(
+                peripheral: peripheral,
+                writeChar: writeChar,
+                delegate: self.delegate
             )
+            self.store.bridge?.ledController = controller
+            print("[LED] Connected and ready")
+        }
+
+        delegate.onDisconnect = { [weak self] _ in
+            self?.store.bridge?.ledController = nil
+            self?.ledPeripheral = nil
+            print("[LED] Disconnected")
         }
 
         delegate.start(with: nil)

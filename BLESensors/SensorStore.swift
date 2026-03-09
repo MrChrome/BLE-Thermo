@@ -15,9 +15,22 @@ struct SensorReading: Identifiable {
     var displayName: String { alias.isEmpty ? name : alias }
 }
 
+struct DeviceReading: Identifiable {
+    let id: UUID
+    var name: String
+    var rssi: Int
+    var lastSeen: Date
+}
+
+// Maps BLE device names to display names shown in the UI
+let trackedDeviceNames: [String: String] = [
+    "ELK-BLEDOM": "LED Strips"
+]
+
 @Observable
 class SensorStore {
     var sensors: [SensorReading] = []
+    var devices: [DeviceReading] = []
     var homekitSetupCode: String? = nil
     var bridge: HomeKitBridge? = nil
 
@@ -52,6 +65,16 @@ class SensorStore {
         // Update HomeKit for this sensor
         if let sensor = sensors.first(where: { $0.id == uuid }), sensor.homekit {
             bridge?.updateSensor(sensor)
+        }
+    }
+
+    func updateDevice(uuid: UUID, name: String, rssi: Int) {
+        if let idx = devices.firstIndex(where: { $0.id == uuid }) {
+            devices[idx].name = name
+            devices[idx].rssi = rssi
+            devices[idx].lastSeen = Date()
+        } else {
+            devices.append(DeviceReading(id: uuid, name: name, rssi: rssi, lastSeen: Date()))
         }
     }
 

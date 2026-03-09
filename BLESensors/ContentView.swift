@@ -9,7 +9,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if store.sensors.isEmpty {
+            if store.sensors.isEmpty && store.devices.isEmpty {
                 ContentUnavailableView(
                     "Scanning for Sensors",
                     systemImage: "sensor.tag.radiowaves.forward",
@@ -18,6 +18,12 @@ struct ContentView: View {
                 .frame(minHeight: 200)
             } else {
                 VStack(spacing: 0) {
+                    ForEach(store.devices) { device in
+                        DeviceRow(device: device, showRSSI: showRSSI)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                        Divider().padding(.leading, 12)
+                    }
                     ForEach(store.sensors) { sensor in
                         SensorRow(sensor: sensor, showRSSI: showRSSI, homekitCode: store.homekitSetupCode)
                             .padding(.horizontal, 12)
@@ -87,23 +93,24 @@ struct SensorRow: View {
                 HStack(spacing: 4) {
                     Text(sensor.displayName)
                         .font(.headline)
+                        .foregroundStyle(.white)
                     if sensor.homekit {
                         Image(systemName: "house.fill")
                             .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.white)
                             .help(homekitCode.map { "HomeKit pairing code: \($0)" } ?? "HomeKit enabled")
                     }
                 }
                 HStack(spacing: 6) {
                     Text(String(format: "%.1f°F", sensor.tempF))
-                        .foregroundStyle(.blue)
-                    Text("·").foregroundStyle(.secondary)
+                        .foregroundStyle(.white)
+                    Text("·").foregroundStyle(.white)
                     Text(String(format: "%.1f%%", sensor.humidity))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(.white)
                     if showRSSI {
-                        Text("·").foregroundStyle(.secondary)
+                        Text("·").foregroundStyle(.white)
                         Text("\(sensor.rssi) dBm")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white)
                     }
                 }
                 .font(.subheadline)
@@ -114,9 +121,32 @@ struct SensorRow: View {
                 if showRSSI || sensor.lastSeen.timeIntervalSinceNow < -60 {
                     Text(sensor.lastSeen, format: .dateTime.hour().minute())
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white)
                 }
             }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct DeviceRow: View {
+    let device: DeviceReading
+    var showRSSI: Bool
+
+    var body: some View {
+        HStack {
+            Text(device.name)
+                .font(.headline)
+                .foregroundStyle(.white)
+            if showRSSI {
+                Text("\(device.rssi) dBm")
+                    .font(.caption)
+                    .foregroundStyle(.white)
+            }
+            Spacer()
+            Image(systemName: "lightbulb.fill")
+                .foregroundStyle(.white)
+                .frame(width: 34)
         }
         .padding(.vertical, 4)
     }
@@ -125,7 +155,7 @@ struct SensorRow: View {
 struct BatteryView: View {
     let pct: Int
 
-    private var color: Color { pct >= 50 ? .green : pct >= 25 ? .yellow : .red }
+    private var color: Color { .white }
     private var filled: Int  { Int((Double(pct) / 100.0 * 4).rounded()) }
 
     var body: some View {
@@ -136,16 +166,16 @@ struct BatteryView: View {
                         .fill(i < filled ? color : Color.clear)
                         .overlay(
                             RoundedRectangle(cornerRadius: 1)
-                                .stroke(Color.secondary.opacity(0.4), lineWidth: 0.5)
+                                .stroke(Color.white.opacity(0.4), lineWidth: 0.5)
                         )
                         .frame(width: 5, height: 9)
                 }
             }
             .padding(2)
-            .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.secondary, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.white, lineWidth: 1))
 
             RoundedRectangle(cornerRadius: 1)
-                .fill(Color.secondary)
+                .fill(Color.white)
                 .frame(width: 2, height: 5)
         }
     }
