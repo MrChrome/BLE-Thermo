@@ -15,6 +15,7 @@ struct ContentView: View {
                     systemImage: "sensor.tag.radiowaves.forward",
                     description: Text("Looking for nearby Govee BLE sensors…")
                 )
+                .foregroundStyle(.white)
                 .frame(minHeight: 200)
             } else {
                 VStack(spacing: 0) {
@@ -29,11 +30,11 @@ struct ContentView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
-                            .onTapGesture {
-                                renameText = sensor.alias.isEmpty ? sensor.name : sensor.alias
-                                renamingSensor = sensor
-                            }
                             .contextMenu {
+                                Button("Rename") {
+                                    renameText = sensor.alias.isEmpty ? sensor.name : sensor.alias
+                                    renamingSensor = sensor
+                                }
                                 Toggle("HomeKit", isOn: Binding(
                                     get: { sensor.homekit },
                                     set: { store.setHomeKit(id: sensor.id, enabled: $0) }
@@ -50,6 +51,8 @@ struct ContentView: View {
         }
         .navigationTitle("BLE Thermo")
         .frame(width: 272)
+        .background(Color(white: 0.0, opacity: 0.2))
+        .overlay(Rectangle().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.1))
         .alert("Rename Sensor", isPresented: Binding(
             get: { renamingSensor != nil },
             set: { if !$0 { renamingSensor = nil } }

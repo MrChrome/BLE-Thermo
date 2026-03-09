@@ -36,7 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "Show Window", action: #selector(togglePanel), keyEquivalent: "")
+        menu.addItem(withTitle: "Show Window", action: #selector(showPanel), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit BLE Thermo", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem?.menu = nil
@@ -45,15 +45,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Floating panel
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 272, height: 300),
-            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .hudWindow],
+            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .fullSizeContentView, .borderless],
             backing: .buffered,
             defer: false
         )
-        panel.title = "BLE Thermo"
+        panel.title = ""
+        panel.titlebarAppearsTransparent = true
+        panel.titleVisibility = .hidden
+        panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
         panel.center()
 
         let contentView = ContentView(store: store)
@@ -76,6 +82,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.makeKeyAndOrderFront(nil)
     }
 
+    @objc func showPanel() {
+        guard let panel else { return }
+        panel.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     @objc func handleStatusItemClick() {
         guard let event = NSApp.currentEvent else { return }
         if event.type == .rightMouseUp {
@@ -83,17 +95,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             statusItem?.button?.performClick(nil)
             statusItem?.menu = nil
         } else {
-            togglePanel()
-        }
-    }
-
-    @objc func togglePanel() {
-        guard let panel else { return }
-        if panel.isVisible {
-            panel.orderOut(nil)
-        } else {
-            panel.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            // Show window then menu
+            if let panel, !panel.isVisible {
+                panel.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            statusItem?.menu = statusMenu
+            statusItem?.button?.performClick(nil)
+            statusItem?.menu = nil
         }
     }
 }
