@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var renameText = ""
     @State private var showRSSI = false
     @State private var eventMonitor: Any?
+    @State private var showHomekitCode = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +27,7 @@ struct ContentView: View {
                         Divider().padding(.leading, 12)
                     }
                     ForEach(store.sensors) { sensor in
-                        SensorRow(sensor: sensor, showRSSI: showRSSI, homekitCode: store.homekitSetupCode)
+                        SensorRow(sensor: sensor, showRSSI: showRSSI)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
@@ -37,7 +38,10 @@ struct ContentView: View {
                                 }
                                 Toggle("HomeKit", isOn: Binding(
                                     get: { sensor.homekit },
-                                    set: { store.setHomeKit(id: sensor.id, enabled: $0) }
+                                    set: { enabled in
+                                        store.setHomeKit(id: sensor.id, enabled: enabled)
+                                        if enabled { showHomekitCode = true }
+                                    }
                                 ))
                             }
                         if sensor.id != store.sensors.last?.id {
@@ -70,6 +74,15 @@ struct ContentView: View {
                 Text(sensor.name)
             }
         }
+        .alert("HomeKit Pairing Code", isPresented: $showHomekitCode) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            if let code = store.homekitSetupCode {
+                Text("Pairing code: \(code)")
+            } else {
+                Text("HomeKit bridge is not running.")
+            }
+        }
         .onAppear {
             eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
                 showRSSI = event.modifierFlags.contains(.shift)
@@ -88,22 +101,13 @@ struct ContentView: View {
 struct SensorRow: View {
     let sensor: SensorReading
     var showRSSI: Bool
-    var homekitCode: String?
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
-                    Text(sensor.displayName)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                    if sensor.homekit {
-                        Image(systemName: "house.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.white)
-                            .help(homekitCode.map { "HomeKit pairing code: \($0)" } ?? "HomeKit enabled")
-                    }
-                }
+                Text(sensor.displayName)
+                    .font(.headline)
+                    .foregroundStyle(.white)
                 HStack(spacing: 6) {
                     Text(String(format: "%.1f°F", sensor.tempF))
                         .foregroundStyle(.white)
