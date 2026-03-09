@@ -8,7 +8,7 @@ struct ContentView: View {
     @State private var eventMonitor: Any?
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
             if store.sensors.isEmpty {
                 ContentUnavailableView(
                     "Scanning for Sensors",
@@ -19,13 +19,19 @@ struct ContentView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(store.sensors) { sensor in
-                        SensorRow(sensor: sensor, showRSSI: showRSSI)
+                        SensorRow(sensor: sensor, showRSSI: showRSSI, homekitCode: store.homekitSetupCode)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 renameText = sensor.alias.isEmpty ? sensor.name : sensor.alias
                                 renamingSensor = sensor
+                            }
+                            .contextMenu {
+                                Toggle("HomeKit", isOn: Binding(
+                                    get: { sensor.homekit },
+                                    set: { store.setHomeKit(id: sensor.id, enabled: $0) }
+                                ))
                             }
                         if sensor.id != store.sensors.last?.id {
                             Divider().padding(.leading, 12)
@@ -34,6 +40,7 @@ struct ContentView: View {
                 }
                 .padding(.vertical, 4)
             }
+
         }
         .navigationTitle("BLE Thermo")
         .frame(width: 272)
@@ -48,9 +55,7 @@ struct ContentView: View {
                 }
                 renamingSensor = nil
             }
-            Button("Cancel", role: .cancel) {
-                renamingSensor = nil
-            }
+            Button("Cancel", role: .cancel) { }
         } message: {
             if let sensor = renamingSensor {
                 Text(sensor.name)
@@ -74,12 +79,21 @@ struct ContentView: View {
 struct SensorRow: View {
     let sensor: SensorReading
     var showRSSI: Bool
+    var homekitCode: String?
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text(sensor.displayName)
-                    .font(.headline)
+                HStack(spacing: 4) {
+                    Text(sensor.displayName)
+                        .font(.headline)
+                    if sensor.homekit {
+                        Image(systemName: "house.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .help(homekitCode.map { "HomeKit pairing code: \($0)" } ?? "HomeKit enabled")
+                    }
+                }
                 HStack(spacing: 6) {
                     Text(String(format: "%.1f°F", sensor.tempF))
                         .foregroundStyle(.blue)

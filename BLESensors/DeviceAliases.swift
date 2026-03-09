@@ -4,12 +4,18 @@ private struct DeviceEntry: Codable {
     let uuid: String
     let name: String?
     let alias: String?
+    let homekit: Bool?
+}
+
+struct DeviceConfig {
+    var alias: String
+    var homekit: Bool
 }
 
 enum DeviceAliases {
-    /// Returns a [deviceName: alias] dictionary.
+    /// Returns a [deviceName: DeviceConfig] dictionary.
     /// Looks in ~/Library/Application Support/BLESensors/devices.json first, then the app bundle.
-    static func load() -> [String: String] {
+    static func load() -> [String: DeviceConfig] {
         let candidates: [URL?] = [
             fileURL,
             Bundle.main.url(forResource: "devices", withExtension: "json"),
@@ -22,8 +28,8 @@ enum DeviceAliases {
 
             return Dictionary(
                 entries.compactMap { e in
-                    guard let name = e.name, let alias = e.alias, !alias.isEmpty else { return nil }
-                    return (name, alias)
+                    guard let name = e.name else { return nil }
+                    return (name, DeviceConfig(alias: e.alias ?? "", homekit: e.homekit ?? false))
                 },
                 uniquingKeysWith: { first, _ in first }
             )
@@ -36,7 +42,7 @@ enum DeviceAliases {
         guard let url = fileURL else { return }
 
         let entries = sensors.map { sensor in
-            DeviceEntry(uuid: sensor.id.uuidString, name: sensor.name, alias: sensor.alias)
+            DeviceEntry(uuid: sensor.id.uuidString, name: sensor.name, alias: sensor.alias, homekit: sensor.homekit)
         }
 
         let dir = url.deletingLastPathComponent()

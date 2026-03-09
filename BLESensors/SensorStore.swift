@@ -10,6 +10,7 @@ struct SensorReading: Identifiable {
     var battery: Int
     var rssi: Int
     var lastSeen: Date
+    var homekit: Bool
 
     var displayName: String { alias.isEmpty ? name : alias }
 }
@@ -17,8 +18,12 @@ struct SensorReading: Identifiable {
 @Observable
 class SensorStore {
     var sensors: [SensorReading] = []
+    var homekitSetupCode: String? = nil
+    var bridge: HomeKitBridge? = nil
 
-    func update(uuid: UUID, name: String, alias: String, tempF: Double, humidity: Double, battery: Int, rssi: Int) {
+    func update(uuid: UUID, name: String, alias: String, homekit: Bool = false, tempF: Double, humidity: Double, battery: Int, rssi: Int) {
+        let isNew = !sensors.contains(where: { $0.id == uuid })
+
         if let idx = sensors.firstIndex(where: { $0.id == uuid }) {
             sensors[idx].name     = name
             sensors[idx].alias    = alias.isEmpty ? sensors[idx].alias : alias
@@ -31,15 +36,39 @@ class SensorStore {
             sensors.append(SensorReading(
                 id: uuid, name: name, alias: alias,
                 tempF: tempF, humidity: humidity,
-                battery: battery, rssi: rssi, lastSeen: Date()
+                battery: battery, rssi: rssi, lastSeen: Date(),
+                homekit: homekit
             ))
         }
+
+        // If this is a new sensor with homekit enabled, register it with the bridge
+        if isNew && homekit {
+            if let sensor = sensors.first(where: { $0.id == uuid }) {
+                bridge?.addSensor(sensor)
+            }
+        }
         sensors.sort { $0.tempF > $1.tempF }
+
+        // Update HomeKit for this sensor
+        if let sensor = sensors.first(where: { $0.id == uuid }), sensor.homekit {
+            bridge?.updateSensor(sensor)
+        }
     }
 
     func rename(id: UUID, alias: String) {
         guard let idx = sensors.firstIndex(where: { $0.id == id }) else { return }
         sensors[idx].alias = alias
         DeviceAliases.save(sensors: sensors)
+    }
+
+    func setHomeKit(id: UUID, enabled: Bool) {
+        guard let idx = sensors.firstIndex(where: { $0.id == id }) else { return }
+        sensors[idx].homekit = enabled
+        DeviceAliases.save(sensors: sensors)
+        if enabled {
+            bridge?.addSensor(sensors[idx])
+        } else {
+            bridge?.removeSensor(id: id)
+        }
     }
 }

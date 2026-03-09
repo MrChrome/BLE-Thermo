@@ -10,6 +10,17 @@ struct BLESensorsApp: App {
             ContentView(store: store)
                 .task {
                     if scanner == nil {
+                        // Start HomeKit bridge
+                        do {
+                            let bridge = try HomeKitBridge()
+                            store.bridge = bridge
+                            store.homekitSetupCode = bridge.setupCode
+                            print("[HomeKit] Bridge started, pairing code: \(bridge.setupCode)")
+                        } catch {
+                            print("[HomeKit] Bridge failed to start: \(error)")
+                        }
+
+                        // Start BLE scanning
                         scanner = BluetoothScanner(store: store)
                     }
                 }

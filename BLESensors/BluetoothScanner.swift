@@ -3,12 +3,12 @@ import Foundation
 
 class BluetoothScanner {
     private let store: SensorStore
-    private let aliases: [String: String]
+    private let configs: [String: DeviceConfig]
     private let delegate: ObjCBLEDelegate
 
     init(store: SensorStore) {
         self.store   = store
-        self.aliases = DeviceAliases.load()
+        self.configs = DeviceAliases.load()
         self.delegate = ObjCBLEDelegate()
 
         delegate.onDiscover = { [weak self] peripheral, mfrData, rssi in
@@ -18,13 +18,14 @@ class BluetoothScanner {
                   let rssi,
                   let reading = Self.decodeGovee(Data(mfrData)) else { return }
 
-            let name  = peripheral.name ?? peripheral.identifier.uuidString.prefix(8).description
-            let alias = self.aliases[name] ?? ""
+            let name   = peripheral.name ?? peripheral.identifier.uuidString.prefix(8).description
+            let config = self.configs[name]
 
             self.store.update(
                 uuid:     peripheral.identifier,
                 name:     name,
-                alias:    alias,
+                alias:    config?.alias ?? "",
+                homekit:  config?.homekit ?? false,
                 tempF:    reading.tempF,
                 humidity: reading.humidity,
                 battery:  reading.battery,

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B3CA70A42F5E0E63008B6AAB /* HAP in Frameworks */ = {isa = PBXBuildFile; productRef = B3CA70A32F5E0E63008B6AAB /* HAP */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		B38D9AE52F5D9A9900B10A84 /* BLE Thermo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "BLE Thermo.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B3CA70A42F5E0E63008B6AAB /* HAP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = BLESensors;
 			packageProductDependencies = (
+				B3CA70A32F5E0E63008B6AAB /* HAP */,
 			);
 			productName = BLESensors;
 			productReference = B38D9AE52F5D9A9900B10A84 /* BLE Thermo.app */;
@@ -95,6 +101,9 @@
 			);
 			mainGroup = B38D9ADC2F5D9A9900B10A84;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B3CA70A22F5E0E63008B6AAB /* XCRemoteSwiftPackageReference "HAP" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B38D9AE62F5D9A9900B10A84 /* Products */;
 			projectDirPath = "";
@@ -254,8 +263,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
-				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
@@ -297,8 +306,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
-				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
@@ -351,6 +360,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B3CA70A22F5E0E63008B6AAB /* XCRemoteSwiftPackageReference "HAP" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TheMisFit68/HAP";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B3CA70A32F5E0E63008B6AAB /* HAP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B3CA70A22F5E0E63008B6AAB /* XCRemoteSwiftPackageReference "HAP" */;
+			productName = HAP;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B38D9ADD2F5D9A9900B10A84 /* Project object */;
 }
