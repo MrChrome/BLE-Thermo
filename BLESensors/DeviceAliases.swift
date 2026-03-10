@@ -1,8 +1,7 @@
 import Foundation
 
 private struct DeviceEntry: Codable {
-    let uuid: String
-    let name: String?
+    let name: String
     let alias: String?
     let homekit: Bool?
 }
@@ -27,10 +26,7 @@ enum DeviceAliases {
             else { continue }
 
             return Dictionary(
-                entries.compactMap { e in
-                    guard let name = e.name else { return nil }
-                    return (name, DeviceConfig(alias: e.alias ?? "", homekit: e.homekit ?? false))
-                },
+                entries.map { e in (e.name, DeviceConfig(alias: e.alias ?? "", homekit: e.homekit ?? false)) },
                 uniquingKeysWith: { first, _ in first }
             )
         }
@@ -42,7 +38,7 @@ enum DeviceAliases {
         guard let url = fileURL else { return }
 
         let entries = sensors.map { sensor in
-            DeviceEntry(uuid: sensor.id.uuidString, name: sensor.name, alias: sensor.alias, homekit: sensor.homekit)
+            DeviceEntry(name: sensor.name, alias: sensor.alias, homekit: sensor.homekit)
         }
 
         let dir = url.deletingLastPathComponent()
