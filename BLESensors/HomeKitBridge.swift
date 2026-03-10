@@ -46,6 +46,7 @@ class HomeKitBridge: AccessoryDelegate {
                 ),
                 additionalServices: [humidity, battery]
             )
+            accessory.reachable = false
             accessories[config.uuid] = (accessory, humidity, battery)
             initialAccessories.append(accessory)
         }
