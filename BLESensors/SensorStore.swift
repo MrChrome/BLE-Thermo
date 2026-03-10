@@ -33,6 +33,20 @@ class SensorStore {
     var devices: [DeviceReading] = []
     var homekitSetupCode: String? = nil
     var bridge: HomeKitBridge? = nil
+    private var reachabilityTimer: Timer?
+
+    init() {
+        // Every 60 seconds, mark sensors not seen in 5 minutes as unreachable in HomeKit
+        reachabilityTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let cutoff = Date().addingTimeInterval(-5 * 60)
+            for sensor in self.sensors where sensor.homekit {
+                if sensor.lastSeen < cutoff {
+                    self.bridge?.markUnreachable(id: sensor.id)
+                }
+            }
+        }
+    }
 
     func update(uuid: UUID, name: String, alias: String, homekit: Bool = false, tempF: Double, humidity: Double, battery: Int, rssi: Int) {
         let isNew = !sensors.contains(where: { $0.id == uuid })

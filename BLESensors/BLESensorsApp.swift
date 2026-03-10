@@ -38,6 +38,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Window", action: #selector(showPanel), keyEquivalent: "")
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Reset HomeKit…", action: #selector(resetHomeKit), keyEquivalent: "")
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Quit BLE Thermo", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem?.menu = nil
         self.statusMenu = menu
@@ -66,7 +68,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .task {
                 if self.scanner == nil {
                     do {
-                        let bridge = try HomeKitBridge()
+                        let configs = DeviceAliases.load()
+                        let bridge = try HomeKitBridge(knownSensors: Array(configs.values))
                         self.store.bridge = bridge
                         self.store.homekitSetupCode = bridge.setupCode
                         print("[HomeKit] Bridge started, pairing code: \(bridge.setupCode)")
@@ -80,6 +83,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.contentView = NSHostingView(rootView: contentView)
         self.panel = panel
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    @objc func resetHomeKit() {
+        let alert = NSAlert()
+        alert.messageText = "Reset HomeKit?"
+        alert.informativeText = "This will delete all HomeKit pairing data. You will need to re-pair the bridge in the Home app. The app will quit after resetting."
+        alert.addButton(withTitle: "Reset & Quit")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .warning
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        if let url = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first?.appendingPathComponent("BLESensors/hap.json") {
+            try? FileManager.default.removeItem(at: url)
+            print("[HomeKit] Deleted hap.json")
+        }
+
+        NSApp.terminate(nil)
     }
 
     @objc func showPanel() {

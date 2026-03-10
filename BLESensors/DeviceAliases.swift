@@ -1,12 +1,14 @@
 import Foundation
 
 private struct DeviceEntry: Codable {
+    let uuid: String?
     let name: String
     let alias: String?
     let homekit: Bool?
 }
 
 struct DeviceConfig {
+    var uuid: UUID
     var alias: String
     var homekit: Bool
 }
@@ -26,7 +28,10 @@ enum DeviceAliases {
             else { continue }
 
             return Dictionary(
-                entries.map { e in (e.name, DeviceConfig(alias: e.alias ?? "", homekit: e.homekit ?? false)) },
+                entries.compactMap { e in
+                    let uuid = e.uuid.flatMap { UUID(uuidString: $0) } ?? UUID()
+                    return (e.name, DeviceConfig(uuid: uuid, alias: e.alias ?? "", homekit: e.homekit ?? false))
+                },
                 uniquingKeysWith: { first, _ in first }
             )
         }
@@ -38,7 +43,7 @@ enum DeviceAliases {
         guard let url = fileURL else { return }
 
         let entries = sensors.map { sensor in
-            DeviceEntry(name: sensor.name, alias: sensor.alias, homekit: sensor.homekit)
+            DeviceEntry(uuid: sensor.id.uuidString, name: sensor.name, alias: sensor.alias, homekit: sensor.homekit)
         }
 
         let dir = url.deletingLastPathComponent()
@@ -47,7 +52,7 @@ enum DeviceAliases {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(entries) else { return }
-        try? data.write(to: url, options: .atomic)
+        try? data.write(to: url, options: [.atomic])
     }
 
     private static var fileURL: URL? {
