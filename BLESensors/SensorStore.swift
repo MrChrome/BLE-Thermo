@@ -36,12 +36,23 @@ class SensorStore {
     private var reachabilityTimer: Timer?
 
     init() {
-        // Every 60 seconds, mark sensors not seen in 5 minutes as unreachable in HomeKit
+        // Every 60 seconds, check sensor timeouts
         reachabilityTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }
-            let cutoff = Date().addingTimeInterval(-5 * 60)
+            let unreachableCutoff = Date().addingTimeInterval(-5 * 60)
+            let removeCutoff = Date().addingTimeInterval(-15 * 60)
+
+            // Remove sensors and devices not seen in 15 minutes
+            self.sensors.removeAll { sensor in
+                guard sensor.lastSeen < removeCutoff else { return false }
+                if sensor.homekit { self.bridge?.markUnreachable(id: sensor.id) }
+                return true
+            }
+            self.devices.removeAll { $0.lastSeen < removeCutoff }
+
+            // Mark sensors not seen in 5 minutes as unreachable in HomeKit
             for sensor in self.sensors where sensor.homekit {
-                if sensor.lastSeen < cutoff {
+                if sensor.lastSeen < unreachableCutoff {
                     self.bridge?.markUnreachable(id: sensor.id)
                 }
             }
