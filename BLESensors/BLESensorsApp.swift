@@ -70,6 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     do {
                         let configs = DeviceAliases.load()
                         let bridge = try HomeKitBridge(knownSensors: Array(configs.values))
+                        bridge.store = self.store
                         self.store.bridge = bridge
                         self.store.homekitSetupCode = bridge.setupCode
                         print("[HomeKit] Bridge started, pairing code: \(bridge.setupCode)")

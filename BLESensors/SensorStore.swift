@@ -34,8 +34,18 @@ class SensorStore {
     var homekitSetupCode: String? = nil
     var bridge: HomeKitBridge? = nil
     private var reachabilityTimer: Timer?
+    private var ledColorTimer: Timer?
+    var ledAutoColor = false  // true when the LED strip is in auto-color mode
 
     init() {
+        // Every 5 minutes, update LED strip color based on time of day
+        ledColorTimer = Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in
+            guard let self, self.ledAutoColor else { return }
+            let color = SolarCalculator.currentColor()
+            self.bridge?.ledController?.setColorRGB(r: color.r, g: color.g, b: color.b)
+            self.bridge?.notifyLEDPowerOn()
+        }
+
         // Every 60 seconds, check sensor timeouts
         reachabilityTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }

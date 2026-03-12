@@ -24,6 +24,15 @@ struct ContentView: View {
                         DeviceRow(device: device, showRSSI: showRSSI)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                let color = SolarCalculator.currentColor()
+                                let led = store.bridge?.ledController
+                                led?.setPower(true)
+                                led?.setColorRGB(r: color.r, g: color.g, b: color.b)
+                                store.bridge?.notifyLEDPowerOn()
+                                store.ledAutoColor = true
+                            }
                         Divider().padding(.leading, 12)
                     }
                     ForEach(store.sensors) { sensor in

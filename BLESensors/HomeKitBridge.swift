@@ -11,6 +11,7 @@ class HomeKitBridge: AccessoryDelegate {
     // LED strip
     private var lightbulb: Accessory.Lightbulb?
     var ledController: LEDStripController?
+    weak var store: SensorStore?
 
     init(knownSensors: [DeviceConfig] = []) throws {
         let storageURL = FileManager.default
@@ -76,7 +77,10 @@ class HomeKitBridge: AccessoryDelegate {
 
         switch characteristic.type {
         case .powerState:
-            if let on = newValue as? Bool { led.setPower(on) }
+            if let on = newValue as? Bool {
+                led.setPower(on)
+                if !on { store?.ledAutoColor = false }
+            }
         case .brightness:
             if let pct = newValue as? Int { led.setBrightness(pct) }
         case .hue:
@@ -136,5 +140,10 @@ class HomeKitBridge: AccessoryDelegate {
 
     func markUnreachable(id: UUID) {
         accessories[id]?.accessory.reachable = false
+    }
+
+    /// Call this when the LED is turned on from the app so HomeKit reflects the correct state.
+    func notifyLEDPowerOn() {
+        lightbulb?.lightbulb.powerState.value = true
     }
 }

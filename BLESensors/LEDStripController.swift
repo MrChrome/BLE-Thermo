@@ -29,14 +29,25 @@ class LEDStripController {
 
     func setBrightness(_ percent: Int) {
         brightness = percent
-        let value = UInt8(Double(percent) / 100.0 * 255.0)
-        send([0x7e, 0x00, 0x01, value, 0x00, 0x00, 0x00, 0x00, 0xef])
+        sendCurrentColor()
     }
 
     func setColor(hue: Float, saturation: Float) {
         self.hue        = hue
         self.saturation = saturation
-        let (r, g, b)   = hsbToRGB(hue: hue, saturation: saturation, brightness: 100)
+        sendCurrentColor()
+    }
+
+    func setColorRGB(r: UInt8, g: UInt8, b: UInt8) {
+        let scale = Float(brightness) / 100.0
+        let sr = UInt8(Float(r) * scale)
+        let sg = UInt8(Float(g) * scale)
+        let sb = UInt8(Float(b) * scale)
+        send([0x7e, 0x00, 0x05, 0x03, sr, sg, sb, 0x10, 0xef])
+    }
+
+    private func sendCurrentColor() {
+        let (r, g, b) = hsbToRGB(hue: hue, saturation: saturation, brightness: Float(brightness))
         send([0x7e, 0x00, 0x05, 0x03, r, g, b, 0x10, 0xef])
     }
 
