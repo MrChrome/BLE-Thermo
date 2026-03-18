@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var showRSSI = false
     @State private var eventMonitor: Any?
     @State private var showHomekitCode = false
+    @State private var graphSensor: SensorReading?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +53,10 @@ struct ContentView: View {
                                         if enabled { showHomekitCode = true }
                                     }
                                 ))
+                                Divider()
+                                Button("Graph…") {
+                                    graphSensor = sensor
+                                }
                             }
                         if sensor.id != store.sensors.last?.id {
                             Divider().padding(.leading, 12)
@@ -90,6 +95,16 @@ struct ContentView: View {
                 Text("Pairing code: \(code)")
             } else {
                 Text("HomeKit bridge is not running.")
+            }
+        }
+        .sheet(item: $graphSensor) { sensor in
+            NavigationStack {
+                GraphWindow(sensorName: sensor.displayName, database: store.database)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") { graphSensor = nil }
+                        }
+                    }
             }
         }
         .onAppear {
