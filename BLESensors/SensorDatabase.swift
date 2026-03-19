@@ -121,8 +121,7 @@ class SensorDatabase {
             switch self {
             case .today:
                 let start = calendar.startOfDay(for: Date())
-                let end   = calendar.date(byAdding: .day, value: 1, to: start)!
-                return (start, end)
+                return (start, Date())
             case .yesterday:
                 let todayStart = calendar.startOfDay(for: Date())
                 let start = calendar.date(byAdding: .day, value: -1, to: todayStart)!
