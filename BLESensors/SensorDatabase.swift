@@ -98,6 +98,7 @@ class SensorDatabase {
 
     enum TimeRange: String, CaseIterable {
         case hour      = "1 Hour"
+        case sixHours  = "6 Hours"
         case today     = "Today"
         case yesterday = "Yesterday"
         case day       = "1 Day"
@@ -108,6 +109,7 @@ class SensorDatabase {
         var rollingSeconds: Int? {
             switch self {
             case .hour:      return 3_600
+            case .sixHours:  return 3_600 * 6
             case .day:       return 86_400
             case .month:     return 86_400 * 30
             case .year:      return 86_400 * 365

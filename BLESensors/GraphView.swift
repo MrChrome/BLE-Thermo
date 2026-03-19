@@ -157,7 +157,7 @@ private struct MultiSensorGraphCard: View {
             points.map { NamedPoint(name: name, timestamp: $0.timestamp, value: $0.value) }
         }
     }
-    private var minVal: Double { 0 }
+    private var minVal: Double { (allPoints.map(\.value).min() ?? 0) - 20 }
     private var maxVal: Double { (allPoints.map(\.value).max() ?? 100) + 1 }
     private var xDomain: ClosedRange<Date> {
         if let bounds = range.calendarBounds { return bounds.start...bounds.end }
@@ -166,7 +166,7 @@ private struct MultiSensorGraphCard: View {
     }
     private var xFormat: Date.FormatStyle {
         switch range {
-        case .hour:               return .dateTime.hour().minute()
+        case .hour, .sixHours:    return .dateTime.hour().minute()
         case .today, .yesterday:  return .dateTime.hour()
         case .day:                return .dateTime.hour()
         case .month:              return .dateTime.month().day()
@@ -209,7 +209,7 @@ private struct GraphCard: View {
     let color: Color
     let range: SensorDatabase.TimeRange
 
-    private var minVal: Double { (points.map(\.value).min() ?? 0) - 1 }
+    private var minVal: Double { (points.map(\.value).min() ?? 0) - 20 }
     private var maxVal: Double { (points.map(\.value).max() ?? 100) + 1 }
     private var xDomain: ClosedRange<Date> {
         if let bounds = range.calendarBounds {
@@ -250,7 +250,7 @@ private struct GraphCard: View {
 
     private var xFormat: Date.FormatStyle {
         switch range {
-        case .hour:               return .dateTime.hour().minute()
+        case .hour, .sixHours:    return .dateTime.hour().minute()
         case .today, .yesterday:  return .dateTime.hour()
         case .day:                return .dateTime.hour()
         case .month:              return .dateTime.month().day()
