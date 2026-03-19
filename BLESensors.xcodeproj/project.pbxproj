@@ -60,6 +60,7 @@
 				B38D9AE12F5D9A9900B10A84 /* Sources */,
 				B38D9AE22F5D9A9900B10A84 /* Frameworks */,
 				B38D9AE32F5D9A9900B10A84 /* Resources */,
+				B3C680A62F6CAE6B00692259 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -123,6 +124,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B3C680A62F6CAE6B00692259 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ditto \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\" \"/Applications/${FULL_PRODUCT_NAME}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		B38D9AE12F5D9A9900B10A84 /* Sources */ = {
@@ -274,6 +295,7 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Reads Govee BLE temperature sensors";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -317,6 +339,7 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Reads Govee BLE temperature sensors";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";

@@ -43,6 +43,9 @@ struct ContentView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
+                            .onTapGesture {
+                                graphSensor = sensor
+                            }
                             .contextMenu {
                                 Button("Rename") {
                                     renameText = sensor.alias.isEmpty ? sensor.name : sensor.alias
