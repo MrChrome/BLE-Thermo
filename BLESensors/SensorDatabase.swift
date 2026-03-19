@@ -71,39 +71,100 @@ class SensorDatabase {
     }
 
     enum TimeRange: String, CaseIterable {
-        case hour  = "1 Hour"
-        case day   = "1 Day"
-        case month = "1 Month"
-        case year  = "1 Year"
+        case hour      = "1 Hour"
+        case today     = "Today"
+        case yesterday = "Yesterday"
+        case day       = "1 Day"
+        case month     = "1 Month"
+        case year      = "1 Year"
 
-        var seconds: Int {
+        /// For rolling ranges, returns seconds to look back. Nil for calendar-day ranges.
+        var rollingSeconds: Int? {
             switch self {
-            case .hour:  return 3_600
-            case .day:   return 86_400
-            case .month: return 86_400 * 30
-            case .year:  return 86_400 * 365
+            case .hour:      return 3_600
+            case .day:       return 86_400
+            case .month:     return 86_400 * 30
+            case .year:      return 86_400 * 365
+            case .today, .yesterday: return nil
+            }
+        }
+
+        /// Returns the start and end of the calendar day for fixed ranges.
+        var calendarBounds: (start: Date, end: Date)? {
+            let calendar = Calendar.current
+            switch self {
+            case .today:
+                let start = calendar.startOfDay(for: Date())
+                let end   = calendar.date(byAdding: .day, value: 1, to: start)!
+                return (start, end)
+            case .yesterday:
+                let todayStart = calendar.startOfDay(for: Date())
+                let start = calendar.date(byAdding: .day, value: -1, to: todayStart)!
+                return (start, todayStart)
+            default:
+                return nil
             }
         }
     }
 
     func fetch(name: String, range: TimeRange, column: String) -> [DataPoint] {
-        let since = Int(Date().timeIntervalSince1970) - range.seconds
-        let sql = "SELECT timestamp, \(column) FROM readings WHERE name = ? AND timestamp >= ? ORDER BY timestamp ASC;"
         var stmt: OpaquePointer?
-
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
         defer { sqlite3_finalize(stmt) }
 
-        sqlite3_bind_text(stmt, 1, (name as NSString).utf8String, -1, nil)
-        sqlite3_bind_int64(stmt, 2, Int64(since))
+        if let bounds = range.calendarBounds {
+            let sql = "SELECT timestamp, \(column) FROM readings WHERE name = ? AND timestamp >= ? AND timestamp < ? ORDER BY timestamp ASC;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            sqlite3_bind_text(stmt, 1, (name as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(stmt, 2, Int64(bounds.start.timeIntervalSince1970))
+            sqlite3_bind_int64(stmt, 3, Int64(bounds.end.timeIntervalSince1970))
+        } else {
+            let since = Int64(Date().timeIntervalSince1970) - Int64(range.rollingSeconds ?? 86_400)
+            let sql = "SELECT timestamp, \(column) FROM readings WHERE name = ? AND timestamp >= ? ORDER BY timestamp ASC;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            sqlite3_bind_text(stmt, 1, (name as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(stmt, 2, since)
+        }
 
         var points: [DataPoint] = []
         while sqlite3_step(stmt) == SQLITE_ROW {
-            let ts   = sqlite3_column_int64(stmt, 0)
-            let val  = sqlite3_column_double(stmt, 1)
+            let ts  = sqlite3_column_int64(stmt, 0)
+            let val = sqlite3_column_double(stmt, 1)
             points.append(DataPoint(timestamp: Date(timeIntervalSince1970: Double(ts)), value: val))
         }
         return points
+    }
+
+    /// Returns data for all sensors, keyed by sensor name.
+    func fetchAll(range: TimeRange, column: String) -> [String: [DataPoint]] {
+        // First get all distinct names in the time window
+        var nameStmt: OpaquePointer?
+        defer { sqlite3_finalize(nameStmt) }
+
+        let nameSql: String
+        if let bounds = range.calendarBounds {
+            nameSql = "SELECT DISTINCT name FROM readings WHERE timestamp >= ? AND timestamp < ?;"
+            guard sqlite3_prepare_v2(db, nameSql, -1, &nameStmt, nil) == SQLITE_OK else { return [:] }
+            sqlite3_bind_int64(nameStmt, 1, Int64(bounds.start.timeIntervalSince1970))
+            sqlite3_bind_int64(nameStmt, 2, Int64(bounds.end.timeIntervalSince1970))
+        } else {
+            let since = Int64(Date().timeIntervalSince1970) - Int64(range.rollingSeconds ?? 86_400)
+            nameSql = "SELECT DISTINCT name FROM readings WHERE timestamp >= ?;"
+            guard sqlite3_prepare_v2(db, nameSql, -1, &nameStmt, nil) == SQLITE_OK else { return [:] }
+            sqlite3_bind_int64(nameStmt, 1, since)
+        }
+
+        var names: [String] = []
+        while sqlite3_step(nameStmt) == SQLITE_ROW {
+            if let cStr = sqlite3_column_text(nameStmt, 0) {
+                names.append(String(cString: cStr))
+            }
+        }
+
+        var result: [String: [DataPoint]] = [:]
+        for name in names {
+            result[name] = fetch(name: name, range: range, column: column)
+        }
+        return result
     }
 
     // MARK: - Private

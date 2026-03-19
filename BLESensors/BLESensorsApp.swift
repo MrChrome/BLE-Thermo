@@ -19,6 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var statusMenu: NSMenu?
     var panel: NSPanel?
+    var allSensorsGraphWindow: NSWindow?
     var store = SensorStore()
     var scanner: BluetoothScanner?
 
@@ -37,6 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Window", action: #selector(showPanel), keyEquivalent: "")
+        menu.addItem(withTitle: "Graph All…", action: #selector(openAllSensorsGraph), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Reset HomeKit…", action: #selector(resetHomeKit), keyEquivalent: "")
         menu.addItem(.separator())
@@ -104,6 +106,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSApp.terminate(nil)
+    }
+
+    @objc func openAllSensorsGraph() {
+        if let existing = allSensorsGraphWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "All Sensors"
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: AllSensorsGraphWindow(database: store.database))
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        allSensorsGraphWindow = window
     }
 
     @objc func showPanel() {
