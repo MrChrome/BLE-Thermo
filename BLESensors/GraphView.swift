@@ -38,7 +38,7 @@ struct GraphWindow: View {
             }
         }
         .navigationTitle(sensorName)
-        .frame(minWidth: 480, minHeight: 500)
+        .frame(minWidth: 480, minHeight: 640)
         .task(id: range) { reload() }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
             reload()
@@ -129,7 +129,7 @@ struct AllSensorsGraphWindow: View {
             }
         }
         .navigationTitle("All Sensors")
-        .frame(minWidth: 480, minHeight: 500)
+        .frame(minWidth: 480, minHeight: 680)
         .task(id: range) { reload() }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in reload() }
     }
