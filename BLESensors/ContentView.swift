@@ -8,6 +8,8 @@ struct ContentView: View {
     @State private var eventMonitor: Any?
     @State private var showHomekitCode = false
     @State private var graphSensor: SensorReading?
+    @State private var downloadingSensor: SensorReading?
+    @State private var historyDownloader = GoveeHistoryDownloader()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -57,6 +59,13 @@ struct ContentView: View {
                                 Button("Graph…") {
                                     graphSensor = sensor
                                 }
+                                Button("Download History…") {
+                                    if let peripheral = store.peripherals[sensor.id],
+                                       let ble = store.bleDelegate {
+                                        downloadingSensor = sensor
+                                        historyDownloader.start(peripheral: peripheral, bleDelegate: ble, sensorName: sensor.displayName, database: store.database)
+                                    }
+                                }
                             }
                         if sensor.id != store.sensors.last?.id {
                             Divider().padding(.leading, 12)
@@ -96,6 +105,11 @@ struct ContentView: View {
             } else {
                 Text("HomeKit bridge is not running.")
             }
+        }
+        .sheet(item: $downloadingSensor, onDismiss: {
+            historyDownloader.cancel()
+        }) { sensor in
+            HistoryDebugSheet(sensor: sensor, downloader: historyDownloader)
         }
         .sheet(item: $graphSensor) { sensor in
             NavigationStack {
@@ -209,5 +223,32 @@ struct BatteryView: View {
                 .fill(Color.white)
                 .frame(width: 2, height: 5)
         }
+    }
+}
+
+struct HistoryDebugSheet: View {
+    let sensor: SensorReading
+    var downloader: GoveeHistoryDownloader
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(sensor.displayName)
+                        .font(.headline)
+                    Text(downloader.status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Close") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+
+            ProgressView(value: downloader.progress)
+        }
+        .padding()
+        .frame(minWidth: 320, minHeight: 80)
     }
 }

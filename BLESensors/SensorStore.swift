@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import CoreBluetooth
 
 struct SensorReading: Identifiable {
     let id: UUID
@@ -31,6 +32,8 @@ let trackedDeviceNames: [String: String] = [
 class SensorStore {
     var sensors: [SensorReading] = []
     var devices: [DeviceReading] = []
+    var peripherals: [UUID: CBPeripheral] = [:]
+    var bleDelegate: ObjCBLEDelegate?
     var homekitSetupCode: String? = nil
     var bridge: HomeKitBridge? = nil
     private var reachabilityTimer: Timer?

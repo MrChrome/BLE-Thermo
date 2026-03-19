@@ -11,6 +11,7 @@ class BluetoothScanner {
         self.store    = store
         self.configs  = DeviceAliases.load()
         self.delegate = ObjCBLEDelegate()
+        store.bleDelegate = delegate
 
         delegate.onDiscover = { [weak self] peripheral, mfrData, rssi, localName in
             guard let self, let peripheral, let rssi else { return }
@@ -36,6 +37,7 @@ class BluetoothScanner {
 
             let config = self.configs[name]
             DispatchQueue.main.async {
+                self.store.peripherals[uuid] = peripheral
                 self.store.update(
                     uuid:     uuid,
                     name:     name,

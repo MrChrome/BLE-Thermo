@@ -63,6 +63,32 @@ class SensorDatabase {
         }
     }
 
+    /// Replaces all stored data for `name` with the provided history records.
+    /// Runs inside a single transaction for performance.
+    func importHistory(name: String, records: [GoveeHistoryRecord]) {
+        execute("BEGIN TRANSACTION;")
+        execute("DELETE FROM readings WHERE name = '\(name.replacingOccurrences(of: "'", with: "''"))';")
+
+        let sql = "INSERT INTO readings (timestamp, name, temp_f, humidity) VALUES (?, ?, ?, ?);"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            execute("ROLLBACK;")
+            return
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        for record in records {
+            sqlite3_bind_int64(stmt, 1, Int64(record.timestamp.timeIntervalSince1970))
+            sqlite3_bind_text(stmt, 2, (name as NSString).utf8String, -1, nil)
+            sqlite3_bind_double(stmt, 3, record.tempF)
+            sqlite3_bind_double(stmt, 4, record.humidity)
+            sqlite3_step(stmt)
+            sqlite3_reset(stmt)
+        }
+
+        execute("COMMIT;")
+    }
+
     // MARK: - Read
 
     struct DataPoint {
