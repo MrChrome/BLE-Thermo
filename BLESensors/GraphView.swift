@@ -145,6 +145,8 @@ private struct MultiSensorGraphCard: View {
     let seriesData: [String: [SensorDatabase.DataPoint]]
     let range: SensorDatabase.TimeRange
 
+    @State private var selectedDate: Date?
+
     struct NamedPoint: Identifiable {
         let id = UUID()
         let name: String
@@ -174,18 +176,52 @@ private struct MultiSensorGraphCard: View {
         }
     }
 
+    /// For each sensor, find the data point closest to the selected date.
+    private func closestPoints(to date: Date) -> [NamedPoint] {
+        let sensorNames = seriesData.keys.sorted()
+        return sensorNames.compactMap { name in
+            guard let points = seriesData[name] else { return nil }
+            return points
+                .map { NamedPoint(name: name, timestamp: $0.timestamp, value: $0.value) }
+                .min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.headline)
 
-            Chart(allPoints) { point in
-                LineMark(
-                    x: .value("Time", point.timestamp),
-                    y: .value("Value", point.value)
-                )
-                .foregroundStyle(by: .value("Sensor", point.name))
-                .interpolationMethod(.catmullRom)
+            Chart {
+                ForEach(allPoints) { point in
+                    LineMark(
+                        x: .value("Time", point.timestamp),
+                        y: .value("Value", point.value)
+                    )
+                    .foregroundStyle(by: .value("Sensor", point.name))
+                    .interpolationMethod(.catmullRom)
+                }
+                if let selected = selectedDate {
+                    RuleMark(x: .value("Selected", selected))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                        .annotation(position: .top, overflowResolution: .init(x: .fit, y: .fit)) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(selected, format: xFormat)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                ForEach(closestPoints(to: selected)) { pt in
+                                    HStack(spacing: 4) {
+                                        Text(pt.name).font(.caption2).bold()
+                                        Text(String(format: "%.1f", pt.value)).font(.caption2)
+                                    }
+                                }
+                            }
+                            .padding(6)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                        }
+                }
             }
+            .chartXSelection(value: $selectedDate)
             .chartXScale(domain: xDomain)
             .chartYScale(domain: minVal...maxVal)
             .chartXAxis {
@@ -209,6 +245,8 @@ private struct GraphCard: View {
     let color: Color
     let range: SensorDatabase.TimeRange
 
+    @State private var selectedDate: Date?
+
     private var minVal: Double { (points.map(\.value).min() ?? 0) - 20 }
     private var maxVal: Double { (points.map(\.value).max() ?? 100) + 1 }
     private var xDomain: ClosedRange<Date> {
@@ -219,20 +257,55 @@ private struct GraphCard: View {
         let start = end.addingTimeInterval(Double(-(range.rollingSeconds ?? 86_400)))
         return start...end
     }
+    private var xFormat: Date.FormatStyle {
+        switch range {
+        case .hour, .sixHours:    return .dateTime.hour().minute()
+        case .today, .yesterday:  return .dateTime.hour()
+        case .day:                return .dateTime.hour()
+        case .month:              return .dateTime.month().day()
+        case .year:               return .dateTime.month()
+        }
+    }
+
+    private func closestPoint(to date: Date) -> SensorDatabase.DataPoint? {
+        points.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
 
-            Chart(points, id: \.timestamp) { point in
-                LineMark(
-                    x: .value("Time", point.timestamp),
-                    y: .value("Value", point.value)
-                )
-                .foregroundStyle(color)
-                .interpolationMethod(.catmullRom)
+            Chart {
+                ForEach(points, id: \.timestamp) { point in
+                    LineMark(
+                        x: .value("Time", point.timestamp),
+                        y: .value("Value", point.value)
+                    )
+                    .foregroundStyle(color)
+                    .interpolationMethod(.catmullRom)
+                }
+                if let selected = selectedDate {
+                    RuleMark(x: .value("Selected", selected))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                        .annotation(position: .top, overflowResolution: .init(x: .fit, y: .fit)) {
+                            if let pt = closestPoint(to: selected) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(pt.timestamp, format: xFormat)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Text(String(format: "%.1f", pt.value))
+                                        .font(.caption2)
+                                        .bold()
+                                }
+                                .padding(6)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                            }
+                        }
+                }
             }
+            .chartXSelection(value: $selectedDate)
             .chartXScale(domain: xDomain)
             .chartYScale(domain: minVal...maxVal)
             .chartXAxis {
@@ -246,15 +319,5 @@ private struct GraphCard: View {
         .padding()
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-
-    private var xFormat: Date.FormatStyle {
-        switch range {
-        case .hour, .sixHours:    return .dateTime.hour().minute()
-        case .today, .yesterday:  return .dateTime.hour()
-        case .day:                return .dateTime.hour()
-        case .month:              return .dateTime.month().day()
-        case .year:               return .dateTime.month()
-        }
     }
 }
