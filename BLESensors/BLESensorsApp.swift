@@ -22,10 +22,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var allSensorsGraphWindow: NSWindow?
     var store = SensorStore()
     var scanner: BluetoothScanner?
+    var webServer: WebServer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon
         NSApp.setActivationPolicy(.accessory)
+
+        // Start web server if previously enabled
+        if UserDefaults.standard.bool(forKey: "webServerEnabled") {
+            webServer = WebServer(database: store.database)
+            webServer?.start()
+        }
 
         // Menu bar icon
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -39,6 +46,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Window", action: #selector(showPanel), keyEquivalent: "")
         menu.addItem(withTitle: "Graph All…", action: #selector(openAllSensorsGraph), keyEquivalent: "")
+        let webItem = NSMenuItem(title: webServerMenuTitle, action: #selector(toggleWebServer), keyEquivalent: "")
+        menu.addItem(webItem)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Reset HomeKit…", action: #selector(resetHomeKit), keyEquivalent: "")
         menu.addItem(.separator())
@@ -86,6 +95,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.contentView = NSHostingView(rootView: contentView)
         self.panel = panel
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    private var webServerMenuTitle: String {
+        webServer != nil ? "Disable Web Server" : "Enable Web Server"
+    }
+
+    @objc func toggleWebServer() {
+        if webServer != nil {
+            webServer?.stop()
+            webServer = nil
+            UserDefaults.standard.set(false, forKey: "webServerEnabled")
+            print("[Web] Server stopped")
+        } else {
+            webServer = WebServer(database: store.database)
+            webServer?.start()
+            UserDefaults.standard.set(true, forKey: "webServerEnabled")
+        }
+        // Update menu item title
+        if let item = statusMenu?.items.first(where: {
+            $0.action == #selector(toggleWebServer)
+        }) {
+            item.title = webServerMenuTitle
+        }
     }
 
     @objc func resetHomeKit() {

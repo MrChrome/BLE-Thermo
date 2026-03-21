@@ -134,6 +134,20 @@ class SensorDatabase {
         }
     }
 
+    func allSensorNames() -> [String] {
+        let sql = "SELECT DISTINCT name FROM readings ORDER BY name;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        var names: [String] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            if let cStr = sqlite3_column_text(stmt, 0) {
+                names.append(String(cString: cStr))
+            }
+        }
+        return names
+    }
+
     func fetch(name: String, range: TimeRange, column: String) -> [DataPoint] {
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }
