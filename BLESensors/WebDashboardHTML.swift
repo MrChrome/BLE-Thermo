@@ -288,7 +288,7 @@ enum WebDashboardHTML {
         (async () => {
             await loadSensors();
             await loadData();
-            setInterval(loadData, 60000);
+
         })();
         </script>
     </body>
