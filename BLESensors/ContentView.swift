@@ -157,11 +157,12 @@ struct SensorRow: View {
     var showRSSI: Bool
 
     private var tempColor: Color {
-        if sensor.tempF >= 80 {
+        let t = sensor.tempF
+        if t >= 79.95 {
             return Color(red: 0.95, green: 0.65, blue: 0.65)
-        } else if sensor.tempF >= 75 {
+        } else if t >= 74.95 {
             return Color(red: 0.98, green: 0.78, blue: 0.58)
-        } else if sensor.tempF >= 70 {
+        } else if t >= 69.95 {
             return Color(red: 0.65, green: 0.92, blue: 0.72)
         } else {
             return Color(red: 0.7, green: 0.88, blue: 1.0)
@@ -207,6 +208,13 @@ struct DeviceRow: View {
     var showRSSI: Bool
     var ledState: SensorStore.LEDState = .off
 
+    private var sunsetLabel: String {
+        guard let sunset = SolarCalculator.sunTimes()?.sunset else { return "Auto" }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "h:mm a"
+        return "Sunset \(fmt.string(from: sunset))"
+    }
+
     private var bulbColor: Color {
         switch ledState {
         case .off:  return .white.opacity(0.35)
@@ -226,14 +234,16 @@ struct DeviceRow: View {
                     .foregroundStyle(.white)
             }
             Spacer()
-            if ledState == .auto {
-                Text("Auto")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.6))
+            HStack(spacing: 4) {
+                if ledState == .auto {
+                    Text(sunsetLabel)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                Image(systemName: ledState == .off ? "lightbulb" : "lightbulb.fill")
+                    .foregroundStyle(bulbColor)
+                    .frame(width: 20)
             }
-            Image(systemName: ledState == .off ? "lightbulb" : "lightbulb.fill")
-                .foregroundStyle(bulbColor)
-                .frame(width: 34)
         }
         .padding(.vertical, 4)
     }
