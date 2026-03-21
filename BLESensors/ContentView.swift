@@ -24,7 +24,7 @@ struct ContentView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(store.devices) { device in
-                        DeviceRow(device: device, showRSSI: showRSSI)
+                        DeviceRow(device: device, showRSSI: showRSSI, autoColor: store.ledAutoColor)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
@@ -180,6 +180,7 @@ struct SensorRow: View {
 struct DeviceRow: View {
     let device: DeviceReading
     var showRSSI: Bool
+    var autoColor: Bool = false
 
     var body: some View {
         HStack {
@@ -192,8 +193,13 @@ struct DeviceRow: View {
                     .foregroundStyle(.white)
             }
             Spacer()
+            if autoColor {
+                Text("Auto")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
             Image(systemName: "lightbulb.fill")
-                .foregroundStyle(.white)
+                .foregroundStyle(autoColor ? Color(red: 1.0, green: 0.85, blue: 0.4) : .white)
                 .frame(width: 34)
         }
         .padding(.vertical, 4)
