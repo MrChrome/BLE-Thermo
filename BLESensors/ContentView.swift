@@ -143,6 +143,16 @@ struct SensorRow: View {
     let sensor: SensorReading
     var showRSSI: Bool
 
+    private var tempColor: Color {
+        if sensor.tempF >= 80 {
+            return Color(red: 0.95, green: 0.65, blue: 0.65)
+        } else if sensor.tempF >= 70 {
+            return Color(red: 0.65, green: 0.92, blue: 0.72)
+        } else {
+            return Color(red: 0.7, green: 0.88, blue: 1.0)
+        }
+    }
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
@@ -151,7 +161,7 @@ struct SensorRow: View {
                     .foregroundStyle(.white)
                 HStack(spacing: 6) {
                     Text(String(format: "%.1f°F", sensor.tempF))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(tempColor)
                     Text("·").foregroundStyle(.white)
                     Text(String(format: "%.1f%%", sensor.humidity))
                         .foregroundStyle(.white)
