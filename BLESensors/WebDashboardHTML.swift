@@ -186,6 +186,36 @@ enum WebDashboardHTML {
                 }));
         }
 
+        function syncHiddenToChart(chart, hiddenByLabel) {
+            chart.data.datasets.forEach((ds, i) => {
+                const meta = chart.getDatasetMeta(i);
+                meta.hidden = hiddenByLabel[ds.label] || false;
+            });
+            chart.update('none');
+        }
+
+        function legendClickHandler(e, legendItem, legend) {
+            const label = legendItem.text;
+            const chart = legend.chart;
+            const index = chart.data.datasets.findIndex(ds => ds.label === label);
+            if (index === -1) return;
+
+            // Toggle visibility on clicked chart
+            const meta = chart.getDatasetMeta(index);
+            meta.hidden = !meta.hidden;
+            chart.update('none');
+
+            // Mirror to the other chart
+            const otherChart = chart === tempChart ? humChart : tempChart;
+            if (otherChart) {
+                const otherIndex = otherChart.data.datasets.findIndex(ds => ds.label === label);
+                if (otherIndex !== -1) {
+                    otherChart.getDatasetMeta(otherIndex).hidden = meta.hidden;
+                    otherChart.update('none');
+                }
+            }
+        }
+
         function makeChart(canvas, datasets, unit) {
             return new Chart(canvas, {
                 type: 'line',
@@ -197,7 +227,8 @@ enum WebDashboardHTML {
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { color: 'rgba(255,255,255,0.7)', boxWidth: 12, padding: 16 }
+                            labels: { color: 'rgba(255,255,255,0.7)', boxWidth: 12, padding: 16 },
+                            onClick: legendClickHandler
                         },
                         tooltip: {
                             mode: 'index',
@@ -231,20 +262,20 @@ enum WebDashboardHTML {
         }
 
         function updateChart(chart, datasets, unit) {
-            // Preserve hidden state of each dataset by label
+            // Preserve hidden state of each dataset by label before replacing data
             const hiddenByLabel = {};
             chart.data.datasets.forEach((ds, i) => {
                 hiddenByLabel[ds.label] = !chart.isDatasetVisible(i);
             });
             chart.data.datasets = datasets;
             chart.options.scales.x.time.unit = unit;
-            chart.update();
-            // Restore hidden state
+            // Restore hidden state directly on metadata before update so tooltips work correctly
             chart.data.datasets.forEach((ds, i) => {
-                if (hiddenByLabel[ds.label]) {
-                    chart.hide(i);
-                }
+                const meta = chart.getDatasetMeta(i);
+                meta.hidden = hiddenByLabel[ds.label] || false;
             });
+            // 'none' skips animation on refresh
+            chart.update('none');
         }
 
         function renderSensorSelect() {
