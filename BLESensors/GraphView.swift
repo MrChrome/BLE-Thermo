@@ -162,9 +162,34 @@ private struct MultiSensorGraphCard: View {
     private var minVal: Double { (allPoints.map(\.value).min() ?? 0) - 20 }
     private var maxVal: Double { (allPoints.map(\.value).max() ?? 100) + 1 }
     private var xDomain: ClosedRange<Date> {
-        if let bounds = range.calendarBounds { return bounds.start...bounds.end }
-        let end = Date()
-        return end.addingTimeInterval(Double(-(range.rollingSeconds ?? 86_400)))...end
+        if range == .today {
+            let bounds = range.calendarBounds!
+            return bounds.start...bounds.end
+        }
+        // For all other ranges, shrink the x-axis to available data if it doesn't fill the full window
+        let allTimestamps = allPoints.map(\.timestamp)
+        let end: Date
+        var start: Date
+        if let bounds = range.calendarBounds {
+            // Calendar range like Yesterday
+            end = bounds.end
+            if let earliest = allTimestamps.min() {
+                start = max(bounds.start, earliest)
+            } else {
+                start = bounds.start
+            }
+        } else {
+            // Rolling ranges
+            end = Date()
+            let windowStart = end.addingTimeInterval(Double(-(range.rollingSeconds ?? 86_400)))
+            if let earliest = allTimestamps.min() {
+                start = max(windowStart, earliest)
+            } else {
+                start = windowStart
+            }
+        }
+        if start > end { start = end }
+        return start...end
     }
     private var xFormat: Date.FormatStyle {
         switch range {
@@ -250,11 +275,33 @@ private struct GraphCard: View {
     private var minVal: Double { (points.map(\.value).min() ?? 0) - 20 }
     private var maxVal: Double { (points.map(\.value).max() ?? 100) + 1 }
     private var xDomain: ClosedRange<Date> {
-        if let bounds = range.calendarBounds {
+        if range == .today {
+            let bounds = range.calendarBounds!
             return bounds.start...bounds.end
         }
-        let end = Date()
-        let start = end.addingTimeInterval(Double(-(range.rollingSeconds ?? 86_400)))
+        // For all other ranges, shrink the x-axis to available data if it doesn't fill the full window
+        let allTimestamps = points.map(\.timestamp)
+        let end: Date
+        var start: Date
+        if let bounds = range.calendarBounds {
+            // Calendar range like Yesterday
+            end = bounds.end
+            if let earliest = allTimestamps.min() {
+                start = max(bounds.start, earliest)
+            } else {
+                start = bounds.start
+            }
+        } else {
+            // Rolling ranges
+            end = Date()
+            let windowStart = end.addingTimeInterval(Double(-(range.rollingSeconds ?? 86_400)))
+            if let earliest = allTimestamps.min() {
+                start = max(windowStart, earliest)
+            } else {
+                start = windowStart
+            }
+        }
+        if start > end { start = end }
         return start...end
     }
     private var xFormat: Date.FormatStyle {
