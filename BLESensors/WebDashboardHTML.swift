@@ -231,9 +231,20 @@ enum WebDashboardHTML {
         }
 
         function updateChart(chart, datasets, unit) {
+            // Preserve hidden state of each dataset by label
+            const hiddenByLabel = {};
+            chart.data.datasets.forEach((ds, i) => {
+                hiddenByLabel[ds.label] = !chart.isDatasetVisible(i);
+            });
             chart.data.datasets = datasets;
             chart.options.scales.x.time.unit = unit;
             chart.update();
+            // Restore hidden state
+            chart.data.datasets.forEach((ds, i) => {
+                if (hiddenByLabel[ds.label]) {
+                    chart.hide(i);
+                }
+            });
         }
 
         function renderSensorSelect() {
@@ -288,7 +299,7 @@ enum WebDashboardHTML {
         (async () => {
             await loadSensors();
             await loadData();
-
+            setInterval(loadData, 60000);
         })();
         </script>
     </body>
