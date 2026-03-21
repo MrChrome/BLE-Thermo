@@ -50,7 +50,14 @@ class SensorStore {
     private var ledColorTimer: Timer?
     private var loggingTimer: Timer?
     let database = SensorDatabase()
-    var ledAutoColor: Bool = UserDefaults.standard.bool(forKey: "ledAutoColor") {
+    enum LEDState { case off, on, auto }
+
+    var ledAutoColor: Bool {
+        get { ledState == .auto }
+        set { ledState = newValue ? .auto : .off }
+    }
+
+    var ledState: LEDState = UserDefaults.standard.bool(forKey: "ledAutoColor") ? .auto : .off {
         didSet { UserDefaults.standard.set(ledAutoColor, forKey: "ledAutoColor") }
     }
 

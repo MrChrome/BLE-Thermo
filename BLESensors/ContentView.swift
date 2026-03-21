@@ -24,17 +24,30 @@ struct ContentView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(store.devices) { device in
-                        DeviceRow(device: device, showRSSI: showRSSI, autoColor: store.ledAutoColor)
+                        DeviceRow(device: device, showRSSI: showRSSI, ledState: store.ledState)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                let color = SolarCalculator.currentColor()
                                 let led = store.bridge?.ledController
-                                led?.setPower(true)
-                                led?.setColorRGB(r: color.r, g: color.g, b: color.b)
-                                store.bridge?.notifyLEDPowerOn()
-                                store.ledAutoColor = true
+                                switch store.ledState {
+                                case .off:
+                                    // First click: turn on with white
+                                    led?.setPower(true)
+                                    led?.setColorRGB(r: 255, g: 255, b: 255)
+                                    store.ledState = .on
+                                case .on:
+                                    // Second click: auto sunset mode
+                                    let color = SolarCalculator.currentColor()
+                                    led?.setPower(true)
+                                    led?.setColorRGB(r: color.r, g: color.g, b: color.b)
+                                    store.bridge?.notifyLEDPowerOn()
+                                    store.ledState = .auto
+                                case .auto:
+                                    // Third click: off
+                                    led?.setPower(false)
+                                    store.ledState = .off
+                                }
                             }
                         Divider().padding(.leading, 12)
                     }
@@ -146,6 +159,8 @@ struct SensorRow: View {
     private var tempColor: Color {
         if sensor.tempF >= 80 {
             return Color(red: 0.95, green: 0.65, blue: 0.65)
+        } else if sensor.tempF >= 75 {
+            return Color(red: 0.98, green: 0.78, blue: 0.58)
         } else if sensor.tempF >= 70 {
             return Color(red: 0.65, green: 0.92, blue: 0.72)
         } else {
@@ -190,7 +205,15 @@ struct SensorRow: View {
 struct DeviceRow: View {
     let device: DeviceReading
     var showRSSI: Bool
-    var autoColor: Bool = false
+    var ledState: SensorStore.LEDState = .off
+
+    private var bulbColor: Color {
+        switch ledState {
+        case .off:  return .white.opacity(0.35)
+        case .on:   return .white
+        case .auto: return Color(red: 1.0, green: 0.85, blue: 0.4)
+        }
+    }
 
     var body: some View {
         HStack {
@@ -203,13 +226,13 @@ struct DeviceRow: View {
                     .foregroundStyle(.white)
             }
             Spacer()
-            if autoColor {
+            if ledState == .auto {
                 Text("Auto")
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.6))
             }
-            Image(systemName: "lightbulb.fill")
-                .foregroundStyle(autoColor ? Color(red: 1.0, green: 0.85, blue: 0.4) : .white)
+            Image(systemName: ledState == .off ? "lightbulb" : "lightbulb.fill")
+                .foregroundStyle(bulbColor)
                 .frame(width: 34)
         }
         .padding(.vertical, 4)
