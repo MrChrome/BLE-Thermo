@@ -173,7 +173,7 @@ enum WebDashboardHTML {
         }
 
         function buildDatasets(seriesData) {
-            return Object.entries(seriesData)
+            const datasets = Object.entries(seriesData)
                 .map(([name, points]) => ({
                     label: name,
                     data: points.map(p => ({ x: p.t * 1000, y: p.v })),
@@ -184,6 +184,31 @@ enum WebDashboardHTML {
                     borderWidth: 2,
                     fill: false
                 }));
+
+            // Add a dashed average line when a single sensor is selected
+            if (currentSensor && datasets.length === 1) {
+                const pts = datasets[0].data.map(p => p.y);
+                if (pts.length > 0) {
+                    const avg = pts.reduce((a, b) => a + b, 0) / pts.length;
+                    const color = datasets[0].borderColor;
+                    const xMin = datasets[0].data[0].x;
+                    const xMax = datasets[0].data[datasets[0].data.length - 1].x;
+                    datasets.push({
+                        label: 'avg ' + avg.toFixed(1),
+                        data: [{ x: xMin, y: avg }, { x: xMax, y: avg }],
+                        borderColor: color,
+                        backgroundColor: 'transparent',
+                        borderWidth: 1,
+                        borderDash: [6, 4],
+                        pointRadius: 0,
+                        tension: 0,
+                        fill: false,
+                        order: -1,
+                        isAvgLine: true
+                    });
+                }
+            }
+            return datasets;
         }
 
         function syncHiddenToChart(chart, hiddenByLabel) {
@@ -199,6 +224,13 @@ enum WebDashboardHTML {
             const chart = legend.chart;
             const index = chart.data.datasets.findIndex(ds => ds.label === label);
             if (index === -1) return;
+            // Don't sync the average line across charts
+            if (chart.data.datasets[index].isAvgLine) {
+                const meta = chart.getDatasetMeta(index);
+                meta.hidden = !meta.hidden;
+                chart.update('none');
+                return;
+            }
 
             // Toggle visibility on clicked chart
             const meta = chart.getDatasetMeta(index);
@@ -262,10 +294,10 @@ enum WebDashboardHTML {
         }
 
         function updateChart(chart, datasets, unit) {
-            // Preserve hidden state of each dataset by label before replacing data
+            // Preserve hidden state of each dataset by label before replacing data (skip avg lines)
             const hiddenByLabel = {};
             chart.data.datasets.forEach((ds, i) => {
-                hiddenByLabel[ds.label] = !chart.isDatasetVisible(i);
+                if (!ds.isAvgLine) hiddenByLabel[ds.label] = !chart.isDatasetVisible(i);
             });
             chart.data.datasets = datasets;
             chart.options.scales.x.time.unit = unit;

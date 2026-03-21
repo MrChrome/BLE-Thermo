@@ -35,12 +35,24 @@ class SensorStore {
     var peripherals: [UUID: CBPeripheral] = [:]
     var bleDelegate: ObjCBLEDelegate?
     var homekitSetupCode: String? = nil
-    var bridge: HomeKitBridge? = nil
+    var bridge: HomeKitBridge? = nil {
+        didSet {
+            // When the bridge becomes available, restore auto-color if it was previously enabled
+            if bridge != nil && ledAutoColor {
+                let color = SolarCalculator.currentColor()
+                bridge?.ledController?.setPower(true)
+                bridge?.ledController?.setColorRGB(r: color.r, g: color.g, b: color.b)
+                bridge?.notifyLEDPowerOn()
+            }
+        }
+    }
     private var reachabilityTimer: Timer?
     private var ledColorTimer: Timer?
     private var loggingTimer: Timer?
     let database = SensorDatabase()
-    var ledAutoColor = false  // true when the LED strip is in auto-color mode
+    var ledAutoColor: Bool = UserDefaults.standard.bool(forKey: "ledAutoColor") {
+        didSet { UserDefaults.standard.set(ledAutoColor, forKey: "ledAutoColor") }
+    }
 
     init() {
         // Every 5 minutes, update LED strip color based on time of day

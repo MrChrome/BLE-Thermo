@@ -159,6 +159,13 @@ private struct MultiSensorGraphCard: View {
             points.map { NamedPoint(name: name, timestamp: $0.timestamp, value: $0.value) }
         }
     }
+
+    /// Average value shown only when exactly one sensor is visible.
+    private var singleSensorAverage: Double? {
+        guard seriesData.count == 1, let points = seriesData.values.first, !points.isEmpty else { return nil }
+        return points.map(\.value).reduce(0, +) / Double(points.count)
+    }
+
     private var minVal: Double { (allPoints.map(\.value).min() ?? 0) - 20 }
     private var maxVal: Double { (allPoints.map(\.value).max() ?? 100) + 1 }
     private var xDomain: ClosedRange<Date> {
@@ -225,6 +232,16 @@ private struct MultiSensorGraphCard: View {
                     .foregroundStyle(by: .value("Sensor", point.name))
                     .interpolationMethod(.catmullRom)
                 }
+                if let avg = singleSensorAverage {
+                    RuleMark(y: .value("Average", avg))
+                        .foregroundStyle(.secondary.opacity(0.6))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        .annotation(position: .top, alignment: .trailing) {
+                            Text(String(format: "avg %.1f", avg))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                }
                 if let selected = selectedDate {
                     RuleMark(x: .value("Selected", selected))
                         .foregroundStyle(.secondary.opacity(0.5))
@@ -272,6 +289,10 @@ private struct GraphCard: View {
 
     @State private var selectedDate: Date?
 
+    private var average: Double? {
+        guard !points.isEmpty else { return nil }
+        return points.map(\.value).reduce(0, +) / Double(points.count)
+    }
     private var minVal: Double { (points.map(\.value).min() ?? 0) - 20 }
     private var maxVal: Double { (points.map(\.value).max() ?? 100) + 1 }
     private var xDomain: ClosedRange<Date> {
@@ -331,6 +352,16 @@ private struct GraphCard: View {
                     )
                     .foregroundStyle(color)
                     .interpolationMethod(.catmullRom)
+                }
+                if let avg = average {
+                    RuleMark(y: .value("Average", avg))
+                        .foregroundStyle(color.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        .annotation(position: .top, alignment: .trailing) {
+                            Text(String(format: "avg %.1f", avg))
+                                .font(.caption2)
+                                .foregroundStyle(color.opacity(0.7))
+                        }
                 }
                 if let selected = selectedDate {
                     RuleMark(x: .value("Selected", selected))
