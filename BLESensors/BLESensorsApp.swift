@@ -15,7 +15,7 @@ struct BLESensorsApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var statusItem: NSStatusItem?
     var statusMenu: NSMenu?
     var panel: NSPanel?
@@ -23,6 +23,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var store = SensorStore()
     var scanner: BluetoothScanner?
     var webServer: WebServer?
+
+    // Keys for persisting the panel's screen-relative position
+    private let panelScreenFrameKey = "panelSavedScreenFrame"
+    private let panelRelativeOriginXKey = "panelRelativeOriginX"
+    private let panelRelativeOriginYKey = "panelRelativeOriginY"
+    private let panelWidthKey = "panelSavedWidth"
+    private let panelHeightKey = "panelSavedHeight"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon
@@ -73,7 +80,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
-        panel.center()
+        panel.delegate = self
+        restorePanelPosition(panel)
+
+        // Watch for monitors connecting/disconnecting (e.g. after wake from sleep)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screensDidChange),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
 
         let contentView = ContentView(store: store)
             .task {
@@ -184,5 +200,102 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             statusItem?.button?.performClick(nil)
             statusItem?.menu = nil
         }
+    }
+
+    // MARK: - Panel position persistence
+
+    /// Save the panel's position as an offset relative to its current screen origin,
+    /// along with the screen's frame so we can re-identify the screen later.
+    private func savePanelPosition() {
+        guard let panel, let screen = panel.screen else { return }
+        let frame = panel.frame
+        let screenFrame = screen.frame
+        // Store position relative to screen origin so it survives resolution changes
+        let relX = frame.origin.x - screenFrame.origin.x
+        let relY = frame.origin.y - screenFrame.origin.y
+        let defaults = UserDefaults.standard
+        defaults.set(relX, forKey: panelRelativeOriginXKey)
+        defaults.set(relY, forKey: panelRelativeOriginYKey)
+        defaults.set(frame.width, forKey: panelWidthKey)
+        defaults.set(frame.height, forKey: panelHeightKey)
+        // Encode the screen frame as a string so we can match it on restore
+        defaults.set(NSStringFromRect(screenFrame), forKey: panelScreenFrameKey)
+    }
+
+    /// Restore the panel to its saved position, or center it if no saved position exists
+    /// or the saved screen is not currently available.
+    private func restorePanelPosition(_ panel: NSPanel) {
+        let defaults = UserDefaults.standard
+        guard
+            let screenFrameString = defaults.string(forKey: panelScreenFrameKey),
+            defaults.object(forKey: panelRelativeOriginXKey) != nil
+        else {
+            panel.center()
+            return
+        }
+
+        let savedScreenFrame = NSRectFromString(screenFrameString)
+        let relX = defaults.double(forKey: panelRelativeOriginXKey)
+        let relY = defaults.double(forKey: panelRelativeOriginYKey)
+        let width = defaults.double(forKey: panelWidthKey)
+        let height = defaults.double(forKey: panelHeightKey)
+
+        // Find the screen matching the saved screen frame
+        if let targetScreen = NSScreen.screens.first(where: { $0.frame == savedScreenFrame }) {
+            let origin = CGPoint(
+                x: targetScreen.frame.origin.x + relX,
+                y: targetScreen.frame.origin.y + relY
+            )
+            let size = CGSize(width: width > 0 ? width : 272, height: height > 0 ? height : 300)
+            panel.setFrame(NSRect(origin: origin, size: size), display: false)
+        } else {
+            // Saved screen not available yet — center on main screen for now
+            panel.center()
+        }
+    }
+
+    /// Called when monitors connect or disconnect (including after wake from sleep).
+    /// If the saved screen has reappeared, silently move the panel back to it.
+    @objc private func screensDidChange() {
+        guard let panel else { return }
+        let defaults = UserDefaults.standard
+        guard
+            let screenFrameString = defaults.string(forKey: panelScreenFrameKey),
+            defaults.object(forKey: panelRelativeOriginXKey) != nil
+        else { return }
+
+        let savedScreenFrame = NSRectFromString(screenFrameString)
+        let relX = defaults.double(forKey: panelRelativeOriginXKey)
+        let relY = defaults.double(forKey: panelRelativeOriginYKey)
+        let width = panel.frame.width
+        let height = panel.frame.height
+
+        guard let targetScreen = NSScreen.screens.first(where: { $0.frame == savedScreenFrame }) else {
+            return // Screen still not available
+        }
+
+        let currentScreen = panel.screen
+        guard currentScreen?.frame != targetScreen.frame else {
+            return // Already on the right screen
+        }
+
+        // Silently restore to saved screen
+        let origin = CGPoint(
+            x: targetScreen.frame.origin.x + relX,
+            y: targetScreen.frame.origin.y + relY
+        )
+        panel.setFrame(NSRect(origin: origin, size: CGSize(width: width, height: height)), display: true, animate: false)
+    }
+
+    // MARK: - NSWindowDelegate
+
+    func windowDidMove(_ notification: Notification) {
+        guard (notification.object as? NSPanel) === panel else { return }
+        savePanelPosition()
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard (notification.object as? NSPanel) === panel else { return }
+        savePanelPosition()
     }
 }
