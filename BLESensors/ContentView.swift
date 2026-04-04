@@ -17,7 +17,7 @@ struct ContentView: View {
                 ContentUnavailableView(
                     "Scanning for Sensors",
                     systemImage: "sensor.tag.radiowaves.forward",
-                    description: Text("Looking for nearby Govee BLE sensors…")
+                    description: Text("Looking for nearby Govee BLE sensors…\(store.mysaEnabled ? "\nMysa cloud polling active." : "")")
                 )
                 .foregroundStyle(.white)
                 .frame(minHeight: 200)
@@ -64,22 +64,26 @@ struct ContentView: View {
                                     renameText = sensor.alias.isEmpty ? sensor.name : sensor.alias
                                     renamingSensor = sensor
                                 }
-                                Toggle("HomeKit", isOn: Binding(
-                                    get: { sensor.homekit },
-                                    set: { enabled in
-                                        store.setHomeKit(id: sensor.id, enabled: enabled)
-                                        if enabled { showHomekitCode = true }
-                                    }
-                                ))
+                                if sensor.source == .govee {
+                                    Toggle("HomeKit", isOn: Binding(
+                                        get: { sensor.homekit },
+                                        set: { enabled in
+                                            store.setHomeKit(id: sensor.id, enabled: enabled)
+                                            if enabled { showHomekitCode = true }
+                                        }
+                                    ))
+                                }
                                 Divider()
                                 Button("Graph…") {
                                     graphSensor = sensor
                                 }
-                                Button("Download History…") {
-                                    if let peripheral = store.peripherals[sensor.id],
-                                       let ble = store.bleDelegate {
-                                        downloadingSensor = sensor
-                                        historyDownloader.start(peripheral: peripheral, bleDelegate: ble, sensorName: sensor.displayName, database: store.database)
+                                if sensor.source == .govee {
+                                    Button("Download History…") {
+                                        if let peripheral = store.peripherals[sensor.id],
+                                           let ble = store.bleDelegate {
+                                            downloadingSensor = sensor
+                                            historyDownloader.start(peripheral: peripheral, bleDelegate: ble, sensorName: sensor.displayName, database: store.database)
+                                        }
                                     }
                                 }
                             }
@@ -191,7 +195,14 @@ struct SensorRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 3) {
-                BatteryView(pct: sensor.battery)
+                if sensor.source == .govee {
+                    BatteryView(pct: sensor.battery)
+                } else {
+                    // Mysa is mains-powered — show a plug icon instead
+                    Image(systemName: "powerplug.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
                 if showRSSI || sensor.lastSeen.timeIntervalSinceNow < -60 {
                     Text(sensor.lastSeen, format: .dateTime.hour().minute())
                         .font(.caption)

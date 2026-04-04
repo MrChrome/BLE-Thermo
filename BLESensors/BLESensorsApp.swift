@@ -20,6 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var statusMenu: NSMenu?
     var panel: NSPanel?
     var allSensorsGraphWindow: NSWindow?
+    var settingsWindow: NSWindow?
     var store = SensorStore()
     var scanner: BluetoothScanner?
     var webServer: WebServer?
@@ -55,6 +56,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(withTitle: "Graph All…", action: #selector(openAllSensorsGraph), keyEquivalent: "")
         let webItem = NSMenuItem(title: webServerMenuTitle, action: #selector(toggleWebServer), keyEquivalent: "")
         menu.addItem(webItem)
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Reset HomeKit…", action: #selector(resetHomeKit), keyEquivalent: "")
         menu.addItem(.separator())
@@ -176,6 +179,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         allSensorsGraphWindow = window
+    }
+
+    @objc func openSettings() {
+        if let existing = settingsWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 300),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Settings"
+        window.center()
+        window.isReleasedWhenClosed = false
+        let hostingView = NSHostingView(rootView: SettingsView(store: store))
+        hostingView.sizingOptions = .preferredContentSize
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow = window
     }
 
     @objc func showPanel() {

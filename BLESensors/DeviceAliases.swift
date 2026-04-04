@@ -42,7 +42,8 @@ enum DeviceAliases {
     static func save(sensors: [SensorReading]) {
         guard let url = fileURL else { return }
 
-        let entries = sensors.map { sensor in
+        // Only persist BLE (Govee) sensors — cloud sensors like Mysa re-fetch on launch
+        let entries = sensors.filter { $0.source == .govee }.map { sensor in
             DeviceEntry(uuid: sensor.id.uuidString, name: sensor.name, alias: sensor.alias, homekit: sensor.homekit)
         }
 

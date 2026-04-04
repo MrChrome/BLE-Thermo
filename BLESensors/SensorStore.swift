@@ -2,16 +2,21 @@ import Foundation
 import Observation
 import CoreBluetooth
 
+enum SensorSource {
+    case govee, mysa
+}
+
 struct SensorReading: Identifiable {
     let id: UUID
     var name: String
     var alias: String
     var tempF: Double
     var humidity: Double
-    var battery: Int
+    var battery: Int      // -1 for sensors without a battery (e.g. Mysa)
     var rssi: Int
     var lastSeen: Date
     var homekit: Bool
+    var source: SensorSource = .govee
 
     var displayName: String { alias.isEmpty ? name : alias }
 }
@@ -35,6 +40,16 @@ class SensorStore {
     var peripherals: [UUID: CBPeripheral] = [:]
     var bleDelegate: ObjCBLEDelegate?
     var homekitSetupCode: String? = nil
+    let mysaClient = MysaClient()
+    private var mysaPollingTask: Task<Void, Never>?
+
+    var mysaEnabled: Bool = UserDefaults.standard.bool(forKey: "mysaEnabled") {
+        didSet {
+            UserDefaults.standard.set(mysaEnabled, forKey: "mysaEnabled")
+            if mysaEnabled { startMysaPolling() } else { stopMysaPolling() }
+        }
+    }
+
     var bridge: HomeKitBridge? = nil {
         didSet {
             // When the bridge becomes available, restore auto-color if it was previously enabled
@@ -97,6 +112,75 @@ class SensorStore {
                 }
             }
         }
+
+        // Start Mysa polling if previously enabled and authenticated
+        if mysaEnabled && mysaClient.isAuthenticated {
+            startMysaPolling()
+        }
+    }
+
+    // MARK: - Mysa Polling
+
+    func startMysaPolling() {
+        mysaPollingTask?.cancel()
+        mysaPollingTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                do {
+                    let devices = try await self.mysaClient.fetchDevices()
+                    await MainActor.run { self.applyMysaDevices(devices) }
+                } catch {
+                    print("[Mysa] Poll error: \(error.localizedDescription)")
+                }
+                try? await Task.sleep(for: .seconds(60))
+            }
+        }
+    }
+
+    func stopMysaPolling() {
+        mysaPollingTask?.cancel()
+        mysaPollingTask = nil
+        removeMysaSensors()
+    }
+
+    func removeMysaSensors() {
+        sensors.removeAll { $0.source == .mysa }
+    }
+
+    /// Trigger an immediate Mysa poll (e.g. right after sign-in).
+    func pollMysaNow() async {
+        guard mysaClient.isAuthenticated else { return }
+        do {
+            let devices = try await mysaClient.fetchDevices()
+            applyMysaDevices(devices)
+        } catch {
+            print("[Mysa] Immediate poll error: \(error.localizedDescription)")
+        }
+    }
+
+    private func applyMysaDevices(_ devices: [MysaDeviceState]) {
+        for device in devices {
+            if let idx = sensors.firstIndex(where: { $0.id == device.id }) {
+                sensors[idx].name     = device.name
+                sensors[idx].tempF    = device.tempF
+                sensors[idx].humidity = device.humidity
+                sensors[idx].lastSeen = Date()
+            } else {
+                sensors.append(SensorReading(
+                    id: device.id,
+                    name: device.name,
+                    alias: "",
+                    tempF: device.tempF,
+                    humidity: device.humidity,
+                    battery: -1,
+                    rssi: 0,
+                    lastSeen: Date(),
+                    homekit: false,
+                    source: .mysa
+                ))
+            }
+        }
+        sensors.sort { $0.tempF > $1.tempF }
     }
 
     func update(uuid: UUID, name: String, alias: String, homekit: Bool = false, tempF: Double, humidity: Double, battery: Int, rssi: Int) {
