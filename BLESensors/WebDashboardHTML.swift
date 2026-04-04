@@ -80,6 +80,24 @@ enum WebDashboardHTML {
                 background: #1a1a2e;
                 color: #e0e0e0;
             }
+            .fav-btn {
+                padding: 6px 10px;
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 8px;
+                background: rgba(255,255,255,0.05);
+                color: rgba(255,200,50,0.8);
+                font-size: 15px;
+                cursor: pointer;
+                transition: all 0.15s;
+                flex-shrink: 0;
+                line-height: 1;
+            }
+            .fav-btn:hover { background: rgba(255,255,255,0.1); }
+            .fav-btn.active {
+                background: rgba(255,200,50,0.15);
+                border-color: rgba(255,200,50,0.4);
+                color: #FFC832;
+            }
             .chart-card {
                 background: rgba(255,255,255,0.04);
                 border: 1px solid rgba(255,255,255,0.08);
@@ -110,6 +128,7 @@ enum WebDashboardHTML {
                 <select class="sensor-select" id="sensorSelect">
                     <option value="">All Sensors</option>
                 </select>
+                <button class="fav-btn" id="favBtn" title="Add to favorites">&#9733;</button>
             </div>
             <div class="chart-card">
                 <h2>Temperature (&deg;F)</h2>
@@ -141,12 +160,48 @@ enum WebDashboardHTML {
         let sensorColorMap = {};
         let tempChart = null;
         let humChart = null;
+        let favorites = new Set(JSON.parse(localStorage.getItem('bleFavorites') || '[]'));
+
+        function saveFavorites() {
+            localStorage.setItem('bleFavorites', JSON.stringify([...favorites]));
+        }
 
         const sensorSelect = document.getElementById('sensorSelect');
+        const favBtn = document.getElementById('favBtn');
+
         sensorSelect.onchange = () => {
             currentSensor = sensorSelect.value;
+            updateFavBtn();
             loadData();
         };
+
+        favBtn.onclick = () => {
+            if (!currentSensor || currentSensor === '__favorites__') return;
+            if (favorites.has(currentSensor)) {
+                favorites.delete(currentSensor);
+            } else {
+                favorites.add(currentSensor);
+            }
+            saveFavorites();
+            renderSensorSelect();
+            updateFavBtn();
+        };
+
+        function updateFavBtn() {
+            const isSpecificSensor = currentSensor && currentSensor !== '__favorites__';
+            if (!isSpecificSensor) {
+                favBtn.style.display = 'none';
+            } else {
+                favBtn.style.display = 'inline-block';
+                if (favorites.has(currentSensor)) {
+                    favBtn.classList.add('active');
+                    favBtn.title = 'Remove from favorites';
+                } else {
+                    favBtn.classList.remove('active');
+                    favBtn.title = 'Add to favorites';
+                }
+            }
+        }
 
         // Build range picker buttons
         const picker = document.getElementById('rangePicker');
@@ -212,6 +267,34 @@ enum WebDashboardHTML {
             return datasets;
         }
 
+        function addTempReferenceLines(datasets) {
+            // Find the x extent across all sensor datasets
+            let xMin = Infinity, xMax = -Infinity;
+            datasets.forEach(ds => {
+                if (ds.data.length > 0) {
+                    xMin = Math.min(xMin, ds.data[0].x);
+                    xMax = Math.max(xMax, ds.data[ds.data.length - 1].x);
+                }
+            });
+            if (!isFinite(xMin)) return;
+
+            [70, 80].forEach(temp => {
+                datasets.push({
+                    label: temp + '\u{00B0}F',
+                    data: [{ x: xMin, y: temp }, { x: xMax, y: temp }],
+                    borderColor: 'rgba(255,255,255,0.22)',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    tension: 0,
+                    fill: false,
+                    order: -1,
+                    isRefLine: true
+                });
+            });
+        }
+
         function syncHiddenToChart(chart, hiddenByLabel) {
             chart.data.datasets.forEach((ds, i) => {
                 const meta = chart.getDatasetMeta(i);
@@ -225,8 +308,8 @@ enum WebDashboardHTML {
             const chart = legend.chart;
             const index = chart.data.datasets.findIndex(ds => ds.label === label);
             if (index === -1) return;
-            // Don't sync the average line across charts
-            if (chart.data.datasets[index].isAvgLine) {
+            // Don't sync avg/reference lines across charts
+            if (chart.data.datasets[index].isAvgLine || chart.data.datasets[index].isRefLine) {
                 const meta = chart.getDatasetMeta(index);
                 meta.hidden = !meta.hidden;
                 chart.update('none');
@@ -313,13 +396,25 @@ enum WebDashboardHTML {
 
         function renderSensorSelect() {
             sensorSelect.innerHTML = '<option value="">All Sensors</option>';
+
+            if (favorites.size > 0) {
+                const favOpt = document.createElement('option');
+                favOpt.value = '__favorites__';
+                favOpt.textContent = 'Favorites';
+                sensorSelect.appendChild(favOpt);
+            } else if (currentSensor === '__favorites__') {
+                currentSensor = '';
+            }
+
             allSensors.forEach(name => {
                 const opt = document.createElement('option');
                 opt.value = name;
                 opt.textContent = name;
                 sensorSelect.appendChild(opt);
             });
+
             sensorSelect.value = currentSensor;
+            updateFavBtn();
         }
 
         async function loadSensors() {
@@ -339,13 +434,22 @@ enum WebDashboardHTML {
         async function loadData() {
             try {
                 let url = '/api/data?range=' + currentRange;
-                if (currentSensor) url += '&sensor=' + encodeURIComponent(currentSensor);
+                const showingFavorites = currentSensor === '__favorites__';
+                if (currentSensor && !showingFavorites) url += '&sensor=' + encodeURIComponent(currentSensor);
                 const resp = await fetch(url);
                 const data = await resp.json();
                 const unit = timeUnit(currentRange);
 
-                const tempDS = buildDatasets(data.temperature);
-                const humDS = buildDatasets(data.humidity);
+                let tempData = data.temperature;
+                let humData = data.humidity;
+                if (showingFavorites) {
+                    tempData = Object.fromEntries(Object.entries(tempData).filter(([k]) => favorites.has(k)));
+                    humData = Object.fromEntries(Object.entries(humData).filter(([k]) => favorites.has(k)));
+                }
+
+                const tempDS = buildDatasets(tempData);
+                if (!currentSensor || currentSensor === '__favorites__') addTempReferenceLines(tempDS);
+                const humDS = buildDatasets(humData);
 
                 if (!tempChart) {
                     tempChart = makeChart(document.getElementById('tempChart'), tempDS, unit);
