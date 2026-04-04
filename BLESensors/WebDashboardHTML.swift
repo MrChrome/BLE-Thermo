@@ -6,7 +6,7 @@ enum WebDashboardHTML {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>BLE Thermo</title>
-        <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a1a2e'/%3E%3Crect x='13' y='3' width='6' height='19' rx='3' fill='white'/%3E%3Ccircle cx='16' cy='25' r='6' fill='white'/%3E%3Crect x='14' y='12' width='4' height='11' fill='%23FF3B30'/%3E%3Ccircle cx='16' cy='25' r='4' fill='%23FF3B30'/%3E%3C/svg%3E">
+        <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='13' y='3' width='6' height='19' rx='3' fill='black'/%3E%3Ccircle cx='16' cy='25' r='6' fill='black'/%3E%3Crect x='14.5' y='4.5' width='3' height='11' fill='white'/%3E%3C/svg%3E">
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
         <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
         <style>
