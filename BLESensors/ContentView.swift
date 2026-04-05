@@ -13,7 +13,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if store.sensors.isEmpty && store.devices.isEmpty {
+            if store.sensors.isEmpty && store.devices.isEmpty && store.rokuTVs.isEmpty {
                 ContentUnavailableView(
                     "Scanning for Sensors",
                     systemImage: "sensor.tag.radiowaves.forward",
@@ -28,27 +28,15 @@ struct ContentView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
-                            .onTapGesture {
-                                let led = store.bridge?.ledController
-                                switch store.ledState {
-                                case .off:
-                                    // First click: turn on with white
-                                    led?.setPower(true)
-                                    led?.setColorRGB(r: 255, g: 255, b: 255)
-                                    store.ledState = .on
-                                case .on:
-                                    // Second click: auto sunset mode
-                                    let color = SolarCalculator.currentColor()
-                                    led?.setPower(true)
-                                    led?.setColorRGB(r: color.r, g: color.g, b: color.b)
-                                    store.bridge?.notifyLEDPowerOn()
-                                    store.ledState = .auto
-                                case .auto:
-                                    // Third click: off
-                                    led?.setPower(false)
-                                    store.ledState = .off
-                                }
-                            }
+                            .onTapGesture { toggleLED() }
+                        Divider().padding(.leading, 12)
+                    }
+                    ForEach(store.rokuTVs) { tv in
+                        RokuRow(tv: tv)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                            .onTapGesture { toggleTV(tv) }
                         Divider().padding(.leading, 12)
                     }
                     ForEach(store.sensors) { sensor in
@@ -154,6 +142,33 @@ struct ContentView: View {
             }
         }
     }
+
+    private func toggleLED() {
+        let led = store.bridge?.ledController
+        switch store.ledState {
+        case .off:
+            led?.setPower(true)
+            led?.setColorRGB(r: 255, g: 255, b: 255)
+            store.ledState = .on
+        case .on:
+            let color = SolarCalculator.currentColor()
+            led?.setPower(true)
+            led?.setColorRGB(r: color.r, g: color.g, b: color.b)
+            store.bridge?.notifyLEDPowerOn()
+            store.ledState = .auto
+        case .auto:
+            led?.setPower(false)
+            store.ledState = .off
+        }
+    }
+
+    private func toggleTV(_ tv: RokuTV) {
+        let newState = !tv.powerOn
+        if let idx = store.rokuTVs.firstIndex(where: { $0.id == tv.id }) {
+            store.rokuTVs[idx].powerOn = newState
+        }
+        Task { await tv.controller.setPower(newState) }
+    }
 }
 
 struct SensorRow: View {
@@ -255,6 +270,23 @@ struct DeviceRow: View {
                     .foregroundStyle(bulbColor)
                     .frame(width: 20)
             }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct RokuRow: View {
+    let tv: RokuTV
+
+    var body: some View {
+        HStack {
+            Text(tv.name)
+                .font(.headline)
+                .foregroundStyle(.white)
+            Spacer()
+            Image(systemName: tv.powerOn ? "tv.fill" : "tv")
+                .foregroundStyle(tv.powerOn ? .white : .white.opacity(0.35))
+                .frame(width: 20)
         }
         .padding(.vertical, 4)
     }

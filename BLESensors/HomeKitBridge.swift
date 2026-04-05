@@ -13,6 +13,10 @@ class HomeKitBridge: AccessoryDelegate {
     var ledController: LEDStripController?
     weak var store: SensorStore?
 
+    // Roku TVs: keyed by serial number
+    private var tvAccessories: [String: Accessory.Television] = [:]
+    private var tvControllers: [ObjectIdentifier: RokuController] = [:]
+
     init(knownSensors: [DeviceConfig] = []) throws {
         let storageURL = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)
@@ -73,26 +77,55 @@ class HomeKitBridge: AccessoryDelegate {
                             ofService service: Service,
                             ofAccessory accessory: Accessory,
                             didChangeValue newValue: T?) {
-        guard accessory === lightbulb, let led = ledController else { return }
-
-        switch characteristic.type {
-        case .powerState:
-            if let on = newValue as? Bool {
-                led.setPower(on)
-                if !on { store?.ledAutoColor = false }
+        // LED strip
+        if accessory === lightbulb, let led = ledController {
+            switch characteristic.type {
+            case .powerState:
+                if let on = newValue as? Bool {
+                    led.setPower(on)
+                    if !on { store?.ledAutoColor = false }
+                }
+            case .brightness:
+                if let pct = newValue as? Int { led.setBrightness(pct) }
+            case .hue:
+                let h = (newValue as? Float) ?? lightbulb?.lightbulb.hue?.value ?? 0
+                let s = lightbulb?.lightbulb.saturation?.value ?? 0
+                led.setColor(hue: h, saturation: s)
+            case .saturation:
+                let h = lightbulb?.lightbulb.hue?.value ?? 0
+                let s = (newValue as? Float) ?? lightbulb?.lightbulb.saturation?.value ?? 0
+                led.setColor(hue: h, saturation: s)
+            default:
+                break
             }
-        case .brightness:
-            if let pct = newValue as? Int { led.setBrightness(pct) }
-        case .hue:
-            let h = (newValue as? Float) ?? lightbulb?.lightbulb.hue?.value ?? 0
-            let s = lightbulb?.lightbulb.saturation?.value ?? 0
-            led.setColor(hue: h, saturation: s)
-        case .saturation:
-            let h = lightbulb?.lightbulb.hue?.value ?? 0
-            let s = (newValue as? Float) ?? lightbulb?.lightbulb.saturation?.value ?? 0
-            led.setColor(hue: h, saturation: s)
-        default:
-            break
+            return
+        }
+
+        // Roku TV
+        if let controller = tvControllers[ObjectIdentifier(accessory)] {
+            switch characteristic.type {
+            case .active:
+                if let active = newValue as? Enums.Active {
+                    Task { await controller.setPower(active == .active) }
+                }
+            case .remoteKey:
+                if let key = newValue as? Enums.RemoteKey {
+                    Task { await controller.sendRemoteKey(RokuRemoteKey(hapKey: key)) }
+                }
+            case .volumeSelector:
+                if let sel = newValue as? Enums.VolumeSelector {
+                    Task {
+                        if sel == .increment { await controller.volumeUp() }
+                        else { await controller.volumeDown() }
+                    }
+                }
+            case .mute:
+                if let muted = newValue as? Bool, muted {
+                    Task { await controller.mute() }
+                }
+            default:
+                break
+            }
         }
     }
 
@@ -145,5 +178,33 @@ class HomeKitBridge: AccessoryDelegate {
     /// Call this when the LED is turned on from the app so HomeKit reflects the correct state.
     func notifyLEDPowerOn() {
         lightbulb?.lightbulb.powerState.value = true
+    }
+
+    // MARK: - Roku TVs
+
+    func addTV(info: RokuDeviceInfo, controller: RokuController) {
+        guard tvAccessories[info.serial] == nil else { return }
+
+        let tv = Accessory.Television(
+            info: Service.Info(name: info.name, serialNumber: info.serial),
+            inputs: [("Home Screen", .homescreen), ("HDMI 1", .hdmi), ("HDMI 2", .hdmi)]
+        )
+        tv.television.active.value = info.powerOn ? Enums.Active.active : Enums.Active.inactive
+        tv.delegate = self
+
+        tvAccessories[info.serial] = tv
+        tvControllers[ObjectIdentifier(tv)] = controller
+        device.addAccessories([tv])
+        print("[HomeKit] Added TV: \(info.name)")
+    }
+
+    func updateTV(serial: String, powerOn: Bool) {
+        guard let tv = tvAccessories[serial] else { return }
+        tv.television.active.value = powerOn ? .active : .inactive
+        tv.reachable = true
+    }
+
+    func markTVUnreachable(serial: String) {
+        tvAccessories[serial]?.reachable = false
     }
 }

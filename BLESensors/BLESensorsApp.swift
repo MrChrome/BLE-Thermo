@@ -107,6 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     } catch {
                         print("[HomeKit] Bridge failed to start: \(error)")
                     }
+                    self.store.startRokuScanner()
                     self.scanner = BluetoothScanner(store: self.store)
                 }
             }

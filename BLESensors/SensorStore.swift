@@ -33,6 +33,14 @@ let trackedDeviceNames: [String: String] = [
     "ELK-BLEDOM": "LED Strips"
 ]
 
+struct RokuTV: Identifiable {
+    let id: String      // serial number
+    let name: String
+    let ip: String
+    var powerOn: Bool
+    let controller: RokuController
+}
+
 @Observable
 class SensorStore {
     var sensors: [SensorReading] = []
@@ -42,6 +50,9 @@ class SensorStore {
     var homekitSetupCode: String? = nil
     let mysaClient = MysaClient()
     private var mysaPollingTask: Task<Void, Never>?
+
+    var rokuTVs: [RokuTV] = []
+    var rokuScanner: RokuScanner?
 
     let homepodReader = HomePodReader()
 
@@ -281,5 +292,31 @@ class SensorStore {
         } else {
             bridge?.removeSensor(id: id)
         }
+    }
+
+    // MARK: - Roku TVs
+
+    func startRokuScanner() {
+        let scanner = RokuScanner()
+
+        scanner.onDiscovered = { [weak self] info in
+            guard let self else { return }
+            guard self.rokuTVs.first(where: { $0.id == info.serial }) == nil else { return }
+            let controller = RokuController(ip: info.ip, serial: info.serial, name: info.name)
+            let tv = RokuTV(id: info.serial, name: info.name, ip: info.ip, powerOn: info.powerOn, controller: controller)
+            self.rokuTVs.append(tv)
+            self.bridge?.addTV(info: info, controller: controller)
+        }
+
+        scanner.onStateChanged = { [weak self] serial, powerOn in
+            guard let self else { return }
+            if let idx = self.rokuTVs.firstIndex(where: { $0.id == serial }) {
+                self.rokuTVs[idx].powerOn = powerOn
+                self.bridge?.updateTV(serial: serial, powerOn: powerOn)
+            }
+        }
+
+        scanner.start()
+        rokuScanner = scanner
     }
 }
