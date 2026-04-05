@@ -6,6 +6,8 @@ enum WebDashboardHTML {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>BLE Thermo</title>
+        <script>document.title = localStorage.getItem('bleTitle') || 'BLE Thermo';</script>
+        <!-- title applied immediately from localStorage while server fetch is in flight -->
         <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='13' y='3' width='6' height='19' rx='3' fill='black'/%3E%3Ccircle cx='16' cy='25' r='6' fill='black'/%3E%3Crect x='14.5' y='4.5' width='3' height='11' fill='white'/%3E%3C/svg%3E">
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
         <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
@@ -24,6 +26,16 @@ enum WebDashboardHTML {
                 font-weight: 600;
                 margin-bottom: 16px;
                 color: #fff;
+                cursor: pointer;
+                display: inline-block;
+            }
+            h1:hover { opacity: 0.8; }
+            h1[contenteditable="true"] {
+                outline: none;
+                border-bottom: 2px solid rgba(74,158,255,0.7);
+                cursor: text;
+                padding-bottom: 2px;
+                opacity: 1;
             }
             .range-picker {
                 display: flex;
@@ -122,7 +134,7 @@ enum WebDashboardHTML {
     </head>
     <body>
         <div class="container">
-            <h1>BLE Thermo</h1>
+            <h1 id="pageTitle" title="Click to rename"></h1>
             <div class="controls-row">
                 <div class="range-picker" id="rangePicker"></div>
                 <select class="sensor-select" id="sensorSelect">
@@ -153,6 +165,54 @@ enum WebDashboardHTML {
             '#4A9EFF','#34D399','#F472B6','#FBBF24',
             '#A78BFA','#F87171','#38BDF8','#FB923C'
         ];
+
+        // Title editing
+        const titleEl = document.getElementById('pageTitle');
+        const DEFAULT_TITLE = 'BLE Thermo';
+
+        // Apply cached title instantly, then sync from server
+        titleEl.textContent = localStorage.getItem('bleTitle') || DEFAULT_TITLE;
+        fetch('/api/title')
+            .then(r => r.json())
+            .then(d => {
+                const t = d.title || DEFAULT_TITLE;
+                titleEl.textContent = t;
+                document.title = t;
+                localStorage.setItem('bleTitle', t);
+            })
+            .catch(() => {});
+
+        titleEl.onclick = () => {
+            titleEl.contentEditable = 'true';
+            titleEl.focus();
+            const range = document.createRange();
+            range.selectNodeContents(titleEl);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        };
+
+        function commitTitle() {
+            titleEl.contentEditable = 'false';
+            const newTitle = titleEl.textContent.trim() || DEFAULT_TITLE;
+            titleEl.textContent = newTitle;
+            document.title = newTitle;
+            localStorage.setItem('bleTitle', newTitle);
+            fetch('/api/title', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle })
+            }).catch(() => {});
+        }
+
+        titleEl.onblur = commitTitle;
+        titleEl.onkeydown = e => {
+            if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+            if (e.key === 'Escape') {
+                titleEl.textContent = localStorage.getItem('bleTitle') || DEFAULT_TITLE;
+                titleEl.contentEditable = 'false';
+            }
+        };
 
         let currentRange = 'day';
         let currentSensor = '';  // empty = all sensors

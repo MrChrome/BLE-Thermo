@@ -5,6 +5,11 @@ class WebServer {
     private let database: SensorDatabase
     private var listener: NWListener?
 
+    private var dashboardTitle: String {
+        get { UserDefaults.standard.string(forKey: "dashboardTitle") ?? "BLE Thermo" }
+        set { UserDefaults.standard.set(newValue, forKey: "dashboardTitle") }
+    }
+
     init(database: SensorDatabase) {
         self.database = database
     }
@@ -76,14 +81,29 @@ class WebServer {
         }
 
         let parts = firstLine.split(separator: " ")
-        guard parts.count >= 2, parts[0] == "GET" else {
-            sendResponse(on: connection, status: "405 Method Not Allowed",
-                         contentType: "text/plain", body: "Method Not Allowed")
-            return
+        guard parts.count >= 2 else { connection.cancel(); return }
+        let method = String(parts[0])
+        let uri = String(parts[1])
+
+        // Extract body (everything after \r\n\r\n)
+        let body: String
+        if let range = raw.range(of: "\r\n\r\n") {
+            body = String(raw[range.upperBound...])
+        } else {
+            body = ""
         }
 
-        let uri = String(parts[1])
-        route(uri: uri, on: connection)
+        switch method {
+        case "GET":
+            route(uri: uri, on: connection)
+        case "POST":
+            routePost(uri: uri, body: body, on: connection)
+        case "OPTIONS":
+            sendResponse(on: connection, status: "204 No Content", contentType: "text/plain", body: "")
+        default:
+            sendResponse(on: connection, status: "405 Method Not Allowed",
+                         contentType: "text/plain", body: "Method Not Allowed")
+        }
     }
 
     // MARK: - Routing
@@ -96,6 +116,11 @@ class WebServer {
             sendResponse(on: connection, status: "200 OK",
                          contentType: "text/html; charset=utf-8",
                          body: WebDashboardHTML.page)
+
+        case "/api/title":
+            let json = "{\"title\":\"\(escapeJSON(dashboardTitle))\"}"
+            sendResponse(on: connection, status: "200 OK",
+                         contentType: "application/json", body: json)
 
         case "/api/sensors":
             let names = database.allSensorNames()
@@ -127,6 +152,38 @@ class WebServer {
             sendResponse(on: connection, status: "404 Not Found",
                          contentType: "text/plain", body: "Not Found")
         }
+    }
+
+    private func routePost(uri: String, body: String, on connection: NWConnection) {
+        let (path, _) = splitURI(uri)
+        switch path {
+        case "/api/title":
+            // Expect {"title":"..."} — parse simply without pulling in a JSON framework
+            if let titleValue = extractJSONString(key: "title", from: body), !titleValue.isEmpty {
+                dashboardTitle = titleValue
+                sendResponse(on: connection, status: "200 OK",
+                             contentType: "application/json", body: "{\"title\":\"\(escapeJSON(titleValue))\"}")
+            } else {
+                sendResponse(on: connection, status: "400 Bad Request",
+                             contentType: "text/plain", body: "Missing title")
+            }
+        default:
+            sendResponse(on: connection, status: "404 Not Found",
+                         contentType: "text/plain", body: "Not Found")
+        }
+    }
+
+    /// Minimal extraction of a single string value from a flat JSON object.
+    private func extractJSONString(key: String, from json: String) -> String? {
+        let pattern = "\"\(key)\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\""
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: json, range: NSRange(json.startIndex..., in: json)),
+              let range = Range(match.range(at: 1), in: json) else { return nil }
+        // Unescape basic JSON escapes
+        return String(json[range])
+            .replacingOccurrences(of: "\\\"", with: "\"")
+            .replacingOccurrences(of: "\\\\", with: "\\")
+            .replacingOccurrences(of: "\\/", with: "/")
     }
 
     // MARK: - HTTP Response
