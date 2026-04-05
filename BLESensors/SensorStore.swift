@@ -3,7 +3,7 @@ import Observation
 import CoreBluetooth
 
 enum SensorSource {
-    case govee, mysa
+    case govee, mysa, homepod
 }
 
 struct SensorReading: Identifiable {
@@ -42,6 +42,17 @@ class SensorStore {
     var homekitSetupCode: String? = nil
     let mysaClient = MysaClient()
     private var mysaPollingTask: Task<Void, Never>?
+
+    let homepodReader = HomePodReader()
+
+    var homepodEnabled: Bool = UserDefaults.standard.bool(forKey: "homepodEnabled") {
+        didSet {
+            UserDefaults.standard.set(homepodEnabled, forKey: "homepodEnabled")
+            if !homepodEnabled { removeHomepodSensors() }
+            // HomePodReader starts automatically once HomeKit authorises;
+            // disabling just hides the sensors and suppresses the callback.
+        }
+    }
 
     var mysaEnabled: Bool = UserDefaults.standard.bool(forKey: "mysaEnabled") {
         didSet {
@@ -117,6 +128,12 @@ class SensorStore {
         if mysaEnabled && mysaClient.isAuthenticated {
             startMysaPolling()
         }
+
+        // HomePod reader: deliver readings whenever HomeKit reports them
+        homepodReader.onUpdate = { [weak self] id, name, tempF, humidity in
+            guard let self, self.homepodEnabled else { return }
+            self.applyHomepodReading(id: id, name: name, tempF: tempF, humidity: humidity)
+        }
     }
 
     // MARK: - Mysa Polling
@@ -145,6 +162,28 @@ class SensorStore {
 
     func removeMysaSensors() {
         sensors.removeAll { $0.source == .mysa }
+    }
+
+    func removeHomepodSensors() {
+        sensors.removeAll { $0.source == .homepod }
+    }
+
+    private func applyHomepodReading(id: UUID, name: String, tempF: Double, humidity: Double) {
+        if let idx = sensors.firstIndex(where: { $0.id == id }) {
+            sensors[idx].name     = name
+            sensors[idx].tempF    = tempF
+            sensors[idx].humidity = humidity
+            sensors[idx].lastSeen = Date()
+        } else {
+            sensors.append(SensorReading(
+                id: id, name: name, alias: "",
+                tempF: tempF, humidity: humidity,
+                battery: -1, rssi: 0,
+                lastSeen: Date(), homekit: false,
+                source: .homepod
+            ))
+        }
+        sensors.sort { $0.tempF > $1.tempF }
     }
 
     /// Trigger an immediate Mysa poll (e.g. right after sign-in).

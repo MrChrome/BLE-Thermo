@@ -24,6 +24,32 @@ struct SettingsView: View {
 
             Divider()
 
+            // HomePod section
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Enable HomePod Sensors", isOn: Binding(
+                    get: { store.homepodEnabled },
+                    set: { store.homepodEnabled = $0 }
+                ))
+                .font(.headline)
+
+                if store.homepodEnabled {
+                    HStack(spacing: 6) {
+                        if store.homepodReader.isAuthorized {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                            Text("HomeKit connected").foregroundStyle(.secondary)
+                        } else {
+                            Image(systemName: "clock").foregroundStyle(.secondary)
+                            Text("Connecting to HomeKit…").foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.caption)
+                    .padding(.leading, 4)
+                }
+            }
+            .animation(.easeInOut(duration: 0.15), value: store.homepodEnabled)
+
+            Divider()
+
             // Mysa section
             VStack(alignment: .leading, spacing: 12) {
                 Toggle("Enable Mysa Thermostats", isOn: Binding(
