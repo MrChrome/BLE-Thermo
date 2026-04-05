@@ -11,6 +11,8 @@ struct ContentView: View {
     @State private var downloadingSensor: SensorReading?
     @State private var historyDownloader = GoveeHistoryDownloader()
 
+    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+
     var body: some View {
         VStack(spacing: 0) {
             if store.sensors.isEmpty && store.devices.isEmpty && store.rokuTVs.isEmpty {
@@ -22,70 +24,53 @@ struct ContentView: View {
                 .foregroundStyle(.white)
                 .frame(minHeight: 200)
             } else {
-                VStack(spacing: 0) {
-                    ForEach(store.devices) { device in
-                        DeviceRow(device: device, showRSSI: showRSSI, ledState: store.ledState)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .contentShape(Rectangle())
-                            .onTapGesture { toggleLED() }
-                        Divider().padding(.leading, 12)
-                    }
-                    ForEach(store.rokuTVs) { tv in
-                        RokuRow(tv: tv)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .contentShape(Rectangle())
-                            .onTapGesture { toggleTV(tv) }
-                        Divider().padding(.leading, 12)
-                    }
-                    ForEach(store.sensors) { sensor in
-                        SensorRow(sensor: sensor, showRSSI: showRSSI)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                graphSensor = sensor
-                            }
-                            .contextMenu {
-                                Button("Rename") {
-                                    renameText = sensor.alias.isEmpty ? sensor.name : sensor.alias
-                                    renamingSensor = sensor
-                                }
-                                if sensor.source == .govee {
-                                    Toggle("HomeKit", isOn: Binding(
-                                        get: { sensor.homekit },
-                                        set: { enabled in
-                                            store.setHomeKit(id: sensor.id, enabled: enabled)
-                                            if enabled { showHomekitCode = true }
-                                        }
-                                    ))
-                                }
-                                Divider()
-                                Button("Graph…") {
-                                    graphSensor = sensor
-                                }
-                                if sensor.source == .govee {
-                                    Button("Download History…") {
-                                        if let peripheral = store.peripherals[sensor.id],
-                                           let ble = store.bleDelegate {
-                                            downloadingSensor = sensor
-                                            historyDownloader.start(peripheral: peripheral, bleDelegate: ble, sensorName: sensor.displayName, database: store.database)
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 8) {
+                        ForEach(store.devices) { device in
+                            DeviceCell(device: device, showRSSI: showRSSI, ledState: store.ledState)
+                                .onTapGesture { toggleLED() }
+                        }
+                        ForEach(store.rokuTVs) { tv in
+                            RokuCell(tv: tv)
+                                .onTapGesture { toggleTV(tv) }
+                        }
+                        ForEach(store.sensors) { sensor in
+                            SensorCell(sensor: sensor, showRSSI: showRSSI)
+                                .onTapGesture { graphSensor = sensor }
+                                .contextMenu {
+                                    Button("Rename") {
+                                        renameText = sensor.alias.isEmpty ? sensor.name : sensor.alias
+                                        renamingSensor = sensor
+                                    }
+                                    if sensor.source == .govee {
+                                        Toggle("HomeKit", isOn: Binding(
+                                            get: { sensor.homekit },
+                                            set: { enabled in
+                                                store.setHomeKit(id: sensor.id, enabled: enabled)
+                                                if enabled { showHomekitCode = true }
+                                            }
+                                        ))
+                                    }
+                                    Divider()
+                                    Button("Graph…") { graphSensor = sensor }
+                                    if sensor.source == .govee {
+                                        Button("Download History…") {
+                                            if let peripheral = store.peripherals[sensor.id],
+                                               let ble = store.bleDelegate {
+                                                downloadingSensor = sensor
+                                                historyDownloader.start(peripheral: peripheral, bleDelegate: ble, sensorName: sensor.displayName, database: store.database)
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        if sensor.id != store.sensors.last?.id {
-                            Divider().padding(.leading, 12)
                         }
                     }
+                    .padding(8)
                 }
-                .padding(.vertical, 4)
             }
-
         }
         .navigationTitle("BLE Thermo")
-        .frame(width: 272)
+        .frame(minWidth: 240)
         .background(Color(white: 0.0, opacity: 0.2))
         .overlay(Rectangle().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.1))
         .alert("Rename Sensor", isPresented: Binding(
@@ -171,126 +156,140 @@ struct ContentView: View {
     }
 }
 
-struct SensorRow: View {
+// MARK: - Grid Cells
+
+struct SensorCell: View {
     let sensor: SensorReading
     var showRSSI: Bool
 
     private var tempColor: Color {
         let t = sensor.tempF
-        if t >= 79.95 {
-            return Color(red: 0.95, green: 0.65, blue: 0.65)
-        } else if t >= 74.95 {
-            return Color(red: 0.98, green: 0.78, blue: 0.58)
-        } else if t >= 69.95 {
-            return Color(red: 0.65, green: 0.92, blue: 0.72)
-        } else {
-            return Color(red: 0.7, green: 0.88, blue: 1.0)
-        }
+        if t >= 79.95      { return Color(red: 0.95, green: 0.65, blue: 0.65) }
+        else if t >= 74.95 { return Color(red: 0.98, green: 0.78, blue: 0.58) }
+        else if t >= 69.95 { return Color(red: 0.65, green: 0.92, blue: 0.72) }
+        else               { return Color(red: 0.7,  green: 0.88, blue: 1.0)  }
     }
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top) {
                 Text(sensor.displayName)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                HStack(spacing: 6) {
-                    Text(String(format: "%.1f°F", sensor.tempF))
-                        .foregroundStyle(tempColor)
-                    Text("·").foregroundStyle(.white)
-                    Text(String(format: "%.1f%%", sensor.humidity))
-                        .foregroundStyle(.white)
-                    if showRSSI {
-                        Text("·").foregroundStyle(.white)
-                        Text("\(sensor.rssi) dBm")
-                            .foregroundStyle(.white)
-                    }
-                }
-                .font(.subheadline)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+                Spacer(minLength: 2)
                 if sensor.source == .govee {
                     BatteryView(pct: sensor.battery)
                 } else {
-                    // Mysa is mains-powered — show a plug icon instead
                     Image(systemName: "powerplug.fill")
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.white.opacity(0.4))
                 }
-                if showRSSI || sensor.lastSeen.timeIntervalSinceNow < -60 {
+            }
+            Text(String(format: "%.1f°", sensor.tempF))
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundStyle(tempColor)
+            HStack(spacing: 4) {
+                Text(String(format: "%.0f%%", sensor.humidity))
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.6))
+                if showRSSI {
+                    Text("·").foregroundStyle(.white.opacity(0.4))
+                    Text("\(sensor.rssi)")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                } else if sensor.lastSeen.timeIntervalSinceNow < -60 {
+                    Text("·").foregroundStyle(.white.opacity(0.4))
                     Text(sensor.lastSeen, format: .dateTime.hour().minute())
                         .font(.caption)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.white.opacity(0.5))
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
+        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
-struct DeviceRow: View {
+struct DeviceCell: View {
     let device: DeviceReading
     var showRSSI: Bool
-    var ledState: SensorStore.LEDState = .off
+    var ledState: SensorStore.LEDState
 
     private var sunsetLabel: String {
         guard let sunset = SolarCalculator.sunTimes()?.sunset else { return "Auto" }
         let fmt = DateFormatter()
         fmt.dateFormat = "h:mm a"
-        return "Sunset \(fmt.string(from: sunset))"
+        return fmt.string(from: sunset)
     }
 
     private var bulbColor: Color {
         switch ledState {
-        case .off:  return .white.opacity(0.35)
+        case .off:  return .white.opacity(0.3)
         case .on:   return .white
         case .auto: return Color(red: 1.0, green: 0.85, blue: 0.4)
         }
     }
 
     var body: some View {
-        HStack {
-            Text(device.name)
-                .font(.headline)
-                .foregroundStyle(.white)
-            if showRSSI {
-                Text("\(device.rssi) dBm")
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top) {
+                Text(device.name)
                     .font(.caption)
-                    .foregroundStyle(.white)
-            }
-            Spacer()
-            HStack(spacing: 4) {
-                if ledState == .auto {
-                    Text(sunsetLabel)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.6))
-                }
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+                Spacer()
                 Image(systemName: ledState == .off ? "lightbulb" : "lightbulb.fill")
                     .foregroundStyle(bulbColor)
-                    .frame(width: 20)
+            }
+            Spacer()
+            if ledState == .auto {
+                Text("Sunset \(sunsetLabel)")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.5))
+            } else {
+                Text(ledState == .off ? "Off" : "On")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .padding(.vertical, 4)
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
+        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
-struct RokuRow: View {
+struct RokuCell: View {
     let tv: RokuTV
 
     var body: some View {
-        HStack {
-            Text(tv.name)
-                .font(.headline)
-                .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top) {
+                Text(tv.name)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: tv.powerOn ? "tv.fill" : "tv")
+                    .foregroundStyle(tv.powerOn ? .white : .white.opacity(0.3))
+            }
             Spacer()
-            Image(systemName: tv.powerOn ? "tv.fill" : "tv")
-                .foregroundStyle(tv.powerOn ? .white : .white.opacity(0.35))
-                .frame(width: 20)
+            Text(tv.powerOn ? "On" : "Off")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.5))
         }
-        .padding(.vertical, 4)
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
+        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
     }
 }
+
+// MARK: - Supporting Views
 
 struct BatteryView: View {
     let pct: Int

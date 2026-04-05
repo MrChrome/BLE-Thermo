@@ -130,6 +130,70 @@ enum WebDashboardHTML {
                 color: rgba(255,255,255,0.4);
                 font-size: 14px;
             }
+            .main-layout {
+                display: flex;
+                gap: 16px;
+                align-items: flex-start;
+            }
+            .charts-col { flex: 1; min-width: 0; }
+            .current-panel {
+                display: none;
+                width: 220px;
+                flex-shrink: 0;
+                position: sticky;
+                top: 24px;
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 12px;
+                padding: 16px;
+            }
+            .current-panel h2 {
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: rgba(255,255,255,0.6);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 12px;
+            }
+            .current-sensor-row {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                padding: 7px 0;
+                border-bottom: 1px solid rgba(255,255,255,0.06);
+                gap: 8px;
+            }
+            .current-sensor-row:last-child { border-bottom: none; }
+            .current-sensor-name {
+                font-size: 12px;
+                color: rgba(255,255,255,0.6);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                flex: 1;
+            }
+            .current-sensor-temp {
+                font-size: 15px;
+                font-weight: 600;
+                color: #fff;
+                white-space: nowrap;
+            }
+            .current-sensor-hum {
+                font-size: 11px;
+                color: rgba(255,255,255,0.4);
+                white-space: nowrap;
+            }
+            .current-dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                flex-shrink: 0;
+                margin-right: 2px;
+            }
+            @media (min-width: 900px) {
+                .container { max-width: 1160px; }
+                .current-panel { display: block; }
+            }
         </style>
     </head>
     <body>
@@ -142,13 +206,21 @@ enum WebDashboardHTML {
                 </select>
                 <button class="fav-btn" id="favBtn" title="Add to favorites">&#9733;</button>
             </div>
-            <div class="chart-card">
-                <h2>Temperature (&deg;F)</h2>
-                <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <h2>Humidity (%)</h2>
-                <div class="chart-wrap"><canvas id="humChart"></canvas></div>
+            <div class="main-layout">
+                <div class="charts-col">
+                    <div class="chart-card">
+                        <h2>Temperature (&deg;F)</h2>
+                        <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <h2>Humidity (%)</h2>
+                        <div class="chart-wrap"><canvas id="humChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="current-panel" id="currentPanel">
+                    <h2>Current</h2>
+                    <div id="currentReadings"></div>
+                </div>
             </div>
         </div>
         <script>
@@ -518,9 +590,36 @@ enum WebDashboardHTML {
                     updateChart(tempChart, tempDS, unit);
                     updateChart(humChart, humDS, unit);
                 }
+                renderCurrentReadings(data.temperature, data.humidity);
             } catch (e) {
                 console.error('Failed to load data:', e);
             }
+        }
+
+        function renderCurrentReadings(tempData, humData) {
+            const container = document.getElementById('currentReadings');
+            // Build sorted list by latest temp descending
+            const rows = allSensors
+                .map(name => {
+                    const tPts = tempData[name];
+                    const hPts = humData[name];
+                    const temp = tPts && tPts.length > 0 ? tPts[tPts.length - 1].v : null;
+                    const hum  = hPts && hPts.length > 0 ? hPts[hPts.length - 1].v : null;
+                    return { name, temp, hum };
+                })
+                .filter(r => r.temp !== null)
+                .sort((a, b) => b.temp - a.temp);
+
+            container.innerHTML = rows.map(r => {
+                const color = sensorColorMap[r.name] || '#4A9EFF';
+                const humStr = r.hum !== null ? r.hum.toFixed(0) + '%' : '';
+                return `<div class="current-sensor-row">
+                    <span class="current-dot" style="background:${color}"></span>
+                    <span class="current-sensor-name" title="${r.name}">${r.name}</span>
+                    <span class="current-sensor-hum">${humStr}</span>
+                    <span class="current-sensor-temp">${r.temp.toFixed(1)}&deg;</span>
+                </div>`;
+            }).join('');
         }
 
         // Init

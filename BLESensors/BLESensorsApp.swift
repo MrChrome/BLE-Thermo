@@ -80,6 +80,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
+        panel.minSize = NSSize(width: 240, height: 160)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
