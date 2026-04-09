@@ -279,8 +279,11 @@ class SensorStore {
 
     func rename(id: UUID, alias: String) {
         guard let idx = sensors.firstIndex(where: { $0.id == id }) else { return }
+        let oldName = sensors[idx].displayName
         sensors[idx].alias = alias
+        let newName = sensors[idx].displayName
         DeviceAliases.save(sensors: sensors)
+        database.rename(from: oldName, to: newName)
     }
 
     func setHomeKit(id: UUID, enabled: Bool) {

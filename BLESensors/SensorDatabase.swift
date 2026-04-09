@@ -208,6 +208,21 @@ class SensorDatabase {
         return result
     }
 
+    // MARK: - Rename
+
+    /// Migrates all historical readings from `oldName` to `newName`.
+    func rename(from oldName: String, to newName: String) {
+        guard oldName != newName else { return }
+        let sql = "UPDATE readings SET name = ? WHERE name = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (newName as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 2, (oldName as NSString).utf8String, -1, nil)
+        sqlite3_step(stmt)
+        print("[DB] Renamed '\(oldName)' → '\(newName)' (\(sqlite3_changes(db)) rows)")
+    }
+
     // MARK: - Private
 
     private func execute(_ sql: String) {
