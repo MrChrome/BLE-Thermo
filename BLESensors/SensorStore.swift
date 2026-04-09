@@ -55,6 +55,7 @@ class SensorStore {
     var rokuScanner: RokuScanner?
 
     let homepodReader = HomePodReader()
+    private let deviceAliases: [String: DeviceConfig] = DeviceAliases.load()
 
     var homepodEnabled: Bool = UserDefaults.standard.bool(forKey: "homepodEnabled") {
         didSet {
@@ -216,10 +217,11 @@ class SensorStore {
                 sensors[idx].humidity = device.humidity
                 sensors[idx].lastSeen = Date()
             } else {
+                let savedAlias = deviceAliases[device.name]?.alias ?? ""
                 sensors.append(SensorReading(
                     id: device.id,
                     name: device.name,
-                    alias: "",
+                    alias: savedAlias,
                     tempF: device.tempF,
                     humidity: device.humidity,
                     battery: -1,
