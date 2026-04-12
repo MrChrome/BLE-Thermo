@@ -27,6 +27,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // Keys for persisting the panel's screen-relative position
     private let panelScreenFrameKey = "panelSavedScreenFrame"
+    private let panelDisplayIDKey = "panelSavedDisplayID"
     private let panelRelativeOriginXKey = "panelRelativeOriginX"
     private let panelRelativeOriginYKey = "panelRelativeOriginY"
     private let panelWidthKey = "panelSavedWidth"
@@ -233,8 +234,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // MARK: - Panel position persistence
 
-    /// Save the panel's position as an offset relative to its current screen origin,
-    /// along with the screen's frame so we can re-identify the screen later.
+    /// Save the panel's position as an offset relative to its current screen origin.
+    /// Identifies the screen by CGDirectDisplayID (stable) with frame as fallback.
     private func savePanelPosition() {
         guard let panel, let screen = panel.screen else { return }
         let frame = panel.frame
@@ -247,30 +248,48 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         defaults.set(relY, forKey: panelRelativeOriginYKey)
         defaults.set(frame.width, forKey: panelWidthKey)
         defaults.set(frame.height, forKey: panelHeightKey)
-        // Encode the screen frame as a string so we can match it on restore
+        // Save the screen frame as a fallback identifier
         defaults.set(NSStringFromRect(screenFrame), forKey: panelScreenFrameKey)
+        // Save the display ID — this is stable across sleep/wake cycles
+        if let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID {
+            defaults.set(Int(displayID), forKey: panelDisplayIDKey)
+        }
+    }
+
+    /// Find the saved screen, matching first by CGDirectDisplayID then by frame.
+    private func findSavedScreen() -> NSScreen? {
+        let defaults = UserDefaults.standard
+        let savedDisplayID = defaults.integer(forKey: panelDisplayIDKey)
+        if savedDisplayID != 0 {
+            if let screen = NSScreen.screens.first(where: {
+                ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) == CGDirectDisplayID(savedDisplayID)
+            }) {
+                return screen
+            }
+        }
+        // Fall back to frame matching
+        if let frameString = defaults.string(forKey: panelScreenFrameKey) {
+            let savedFrame = NSRectFromString(frameString)
+            return NSScreen.screens.first(where: { $0.frame == savedFrame })
+        }
+        return nil
     }
 
     /// Restore the panel to its saved position, or center it if no saved position exists
     /// or the saved screen is not currently available.
     private func restorePanelPosition(_ panel: NSPanel) {
         let defaults = UserDefaults.standard
-        guard
-            let screenFrameString = defaults.string(forKey: panelScreenFrameKey),
-            defaults.object(forKey: panelRelativeOriginXKey) != nil
-        else {
+        guard defaults.object(forKey: panelRelativeOriginXKey) != nil else {
             panel.center()
             return
         }
 
-        let savedScreenFrame = NSRectFromString(screenFrameString)
         let relX = defaults.double(forKey: panelRelativeOriginXKey)
         let relY = defaults.double(forKey: panelRelativeOriginYKey)
         let width = defaults.double(forKey: panelWidthKey)
         let height = defaults.double(forKey: panelHeightKey)
 
-        // Find the screen matching the saved screen frame
-        if let targetScreen = NSScreen.screens.first(where: { $0.frame == savedScreenFrame }) {
+        if let targetScreen = findSavedScreen() {
             let origin = CGPoint(
                 x: targetScreen.frame.origin.x + relX,
                 y: targetScreen.frame.origin.y + relY
@@ -284,36 +303,38 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     /// Called when monitors connect or disconnect (including after wake from sleep).
-    /// If the saved screen has reappeared, silently move the panel back to it.
+    /// Delays briefly to let macOS finalize the display configuration before repositioning.
     @objc private func screensDidChange() {
+        // Give macOS time to fully initialize displays after wake from sleep
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.restorePanelToSavedScreen()
+        }
+    }
+
+    private func restorePanelToSavedScreen() {
         guard let panel else { return }
         let defaults = UserDefaults.standard
-        guard
-            let screenFrameString = defaults.string(forKey: panelScreenFrameKey),
-            defaults.object(forKey: panelRelativeOriginXKey) != nil
-        else { return }
+        guard defaults.object(forKey: panelRelativeOriginXKey) != nil else { return }
 
-        let savedScreenFrame = NSRectFromString(screenFrameString)
-        let relX = defaults.double(forKey: panelRelativeOriginXKey)
-        let relY = defaults.double(forKey: panelRelativeOriginYKey)
-        let width = panel.frame.width
-        let height = panel.frame.height
-
-        guard let targetScreen = NSScreen.screens.first(where: { $0.frame == savedScreenFrame }) else {
-            return // Screen still not available
+        guard let targetScreen = findSavedScreen() else {
+            return // Saved screen still not available
         }
 
-        let currentScreen = panel.screen
-        guard currentScreen?.frame != targetScreen.frame else {
+        let panelDisplayID = panel.screen.flatMap {
+            $0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+        }
+        let targetDisplayID = targetScreen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+        guard panelDisplayID != targetDisplayID else {
             return // Already on the right screen
         }
 
-        // Silently restore to saved screen
+        let relX = defaults.double(forKey: panelRelativeOriginXKey)
+        let relY = defaults.double(forKey: panelRelativeOriginYKey)
         let origin = CGPoint(
             x: targetScreen.frame.origin.x + relX,
             y: targetScreen.frame.origin.y + relY
         )
-        panel.setFrame(NSRect(origin: origin, size: CGSize(width: width, height: height)), display: true, animate: false)
+        panel.setFrame(NSRect(origin: origin, size: panel.frame.size), display: true, animate: false)
     }
 
     // MARK: - NSWindowDelegate

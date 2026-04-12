@@ -416,12 +416,12 @@ enum WebDashboardHTML {
             <h1 id="pageTitle" title="Click to rename"></h1>
 
             <div class="tab-bar">
-                <button class="tab-btn active" onclick="switchTab('charts')">Charts</button>
-                <button class="tab-btn" onclick="switchTab('floorplan')">Floor Plan</button>
+                <button class="tab-btn" onclick="switchTab('charts')">Charts</button>
+                <button class="tab-btn active" onclick="switchTab('floorplan')">Floor Plan</button>
             </div>
 
             <!-- Charts Tab -->
-            <div id="tab-charts" class="tab-content active">
+            <div id="tab-charts" class="tab-content">
                 <div class="controls-row">
                     <div class="range-picker" id="rangePicker"></div>
                     <select class="sensor-select" id="sensorSelect">
@@ -448,7 +448,7 @@ enum WebDashboardHTML {
             </div>
 
             <!-- Floor Plan Tab -->
-            <div id="tab-floorplan" class="tab-content">
+            <div id="tab-floorplan" class="tab-content active">
                 <div class="fp-toolbar" id="fpToolbar">
                     <div class="fp-toolbar-spacer"></div>
                     <button class="fp-btn primary" id="fpEditBtn" onclick="toggleFpEdit()" style="display:none">Edit Layout</button>
@@ -566,11 +566,11 @@ enum WebDashboardHTML {
             { key: 'year',      label: '1 Year' }
         ];
 
+        let favorites = new Set(JSON.parse(localStorage.getItem('bleFavorites') || '[]'));
         let currentRange = 'day';
-        let currentSensor = '';
+        let currentSensor = favorites.size > 0 ? '__favorites__' : '';
         let tempChart = null;
         let humChart = null;
-        let favorites = new Set(JSON.parse(localStorage.getItem('bleFavorites') || '[]'));
 
         function saveFavorites() {
             localStorage.setItem('bleFavorites', JSON.stringify([...favorites]));
@@ -835,13 +835,17 @@ enum WebDashboardHTML {
                 }
 
                 // Update latest readings for floor plan pins
+                // Only update sensors present in the response so that chart filtering
+                // doesn't wipe out readings for sensors not included in the API result.
                 allSensors.forEach(name => {
                     const tPts = data.temperature[name];
                     const hPts = data.humidity[name];
-                    latestReadings[name] = {
-                        temp: tPts && tPts.length > 0 ? tPts[tPts.length - 1].v : null,
-                        hum:  hPts && hPts.length > 0 ? hPts[hPts.length - 1].v : null
-                    };
+                    if (tPts !== undefined || hPts !== undefined) {
+                        latestReadings[name] = {
+                            temp: tPts && tPts.length > 0 ? tPts[tPts.length - 1].v : null,
+                            hum:  hPts && hPts.length > 0 ? hPts[hPts.length - 1].v : null
+                        };
+                    }
                 });
 
                 const tempDS = buildDatasets(tempData);
@@ -1180,6 +1184,7 @@ enum WebDashboardHTML {
                 fpPositions = await r.json();
             } catch (e) { fpPositions = {}; }
             await loadData();
+            renderFloorPlan();
             setInterval(loadData, 60000);
         })();
         </script>
