@@ -117,6 +117,15 @@ class SensorDatabase {
             }
         }
 
+        /// Bucket size in seconds for downsampling long ranges. Nil means return raw rows.
+        var downsampleBucket: Int? {
+            switch self {
+            case .month: return 86_400        // one point per day
+            case .year:  return 86_400 * 7    // one point per week
+            default:     return nil
+            }
+        }
+
         /// Returns the start and end of the calendar day for fixed ranges.
         var calendarBounds: (start: Date, end: Date)? {
             let calendar = Calendar.current
@@ -152,7 +161,17 @@ class SensorDatabase {
         var stmt: OpaquePointer?
         defer { sqlite3_finalize(stmt) }
 
-        if let bounds = range.calendarBounds {
+        if let bucket = range.downsampleBucket {
+            let since = Int64(Date().timeIntervalSince1970) - Int64(range.rollingSeconds ?? 86_400)
+            let sql = """
+                SELECT (timestamp / \(bucket)) * \(bucket) AS ts_bucket, AVG(\(column))
+                FROM readings WHERE name = ? AND timestamp >= ?
+                GROUP BY ts_bucket ORDER BY ts_bucket ASC;
+                """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            sqlite3_bind_text(stmt, 1, (name as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(stmt, 2, since)
+        } else if let bounds = range.calendarBounds {
             let sql = "SELECT timestamp, \(column) FROM readings WHERE name = ? AND timestamp >= ? AND timestamp < ? ORDER BY timestamp ASC;"
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
             sqlite3_bind_text(stmt, 1, (name as NSString).utf8String, -1, nil)
