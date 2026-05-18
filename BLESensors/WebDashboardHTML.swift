@@ -156,18 +156,22 @@ enum WebDashboardHTML {
                 align-items: flex-start;
             }
             .charts-col { flex: 1; min-width: 0; }
-            .current-panel {
+            .side-col {
                 display: none;
                 width: 220px;
                 flex-shrink: 0;
                 position: sticky;
                 top: 24px;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .current-panel, .dewpoint-panel {
                 background: rgba(255,255,255,0.04);
                 border: 1px solid rgba(255,255,255,0.08);
                 border-radius: 12px;
                 padding: 16px;
             }
-            .current-panel h2 {
+            .current-panel h2, .dewpoint-panel h2 {
                 font-size: 0.85rem;
                 font-weight: 600;
                 color: rgba(255,255,255,0.6);
@@ -210,9 +214,38 @@ enum WebDashboardHTML {
                 flex-shrink: 0;
                 margin-right: 2px;
             }
+            .dp-row {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                padding: 7px 0;
+                border-bottom: 1px solid rgba(255,255,255,0.06);
+                gap: 8px;
+            }
+            .dp-row:last-child { border-bottom: none; }
+            .dp-label {
+                font-size: 12px;
+                color: rgba(255,255,255,0.6);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                flex: 1;
+            }
+            .dp-value {
+                font-size: 15px;
+                font-weight: 600;
+                color: #fff;
+                white-space: nowrap;
+            }
+            .dp-delta {
+                font-size: 11px;
+                white-space: nowrap;
+            }
+            .dp-delta.drier { color: #F87171; }
+            .dp-delta.wetter { color: #34D399; }
             @media (min-width: 900px) {
                 .container { max-width: 1160px; }
-                .current-panel { display: block; }
+                .side-col { display: flex; }
             }
 
             /* ── Floor Plan tab ─────────────────────────────────── */
@@ -440,9 +473,15 @@ enum WebDashboardHTML {
                             <div class="chart-wrap"><canvas id="humChart"></canvas></div>
                         </div>
                     </div>
-                    <div class="current-panel" id="currentPanel">
-                        <h2>Current</h2>
-                        <div id="currentReadings"></div>
+                    <div class="side-col">
+                        <div class="current-panel" id="currentPanel">
+                            <h2>Current</h2>
+                            <div id="currentReadings"></div>
+                        </div>
+                        <div class="dewpoint-panel" id="dewpointPanel">
+                            <h2>Dew Point (&deg;F)</h2>
+                            <div id="dewpointReadings"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -820,11 +859,11 @@ enum WebDashboardHTML {
 
         async function loadData() {
             try {
-                let url = '/api/data?range=' + currentRange;
+                const url = '/api/data?range=' + currentRange;
                 const showingFavorites = currentSensor === '__favorites__';
-                if (currentSensor && !showingFavorites) url += '&sensor=' + encodeURIComponent(currentSensor);
                 const resp = await fetch(url);
                 const data = await resp.json();
+                const allData = data;
                 const unit = timeUnit(currentRange);
 
                 let tempData = data.temperature;
@@ -832,6 +871,9 @@ enum WebDashboardHTML {
                 if (showingFavorites) {
                     tempData = Object.fromEntries(Object.entries(tempData).filter(([k]) => favorites.has(k)));
                     humData = Object.fromEntries(Object.entries(humData).filter(([k]) => favorites.has(k)));
+                } else if (currentSensor) {
+                    tempData = Object.fromEntries(Object.entries(tempData).filter(([k]) => k === currentSensor));
+                    humData = Object.fromEntries(Object.entries(humData).filter(([k]) => k === currentSensor));
                 }
 
                 // Update latest readings for floor plan pins
@@ -860,6 +902,7 @@ enum WebDashboardHTML {
                     updateChart(humChart, humDS, unit);
                 }
                 renderCurrentReadings(data.temperature, data.humidity);
+                renderDewPointPanel(allData.temperature, allData.humidity);
 
                 // Refresh floor plan pins if visible
                 if (document.getElementById('tab-floorplan').classList.contains('active')) {
@@ -893,6 +936,75 @@ enum WebDashboardHTML {
                     <span class="current-sensor-temp">${r.temp.toFixed(1)}&deg;</span>
                 </div>`;
             }).join('');
+        }
+
+        // Dew point via Magnus formula; inputs in °F / %, output in °F
+        function calcDewPoint(tempF, humPct) {
+            const tc = (tempF - 32) * 5 / 9;
+            const a = 17.625, b = 243.04;
+            const gamma = (a * tc / (b + tc)) + Math.log(humPct / 100);
+            const dpC = b * gamma / (a - gamma);
+            return dpC * 9 / 5 + 32;
+        }
+
+        function renderDewPointPanel(tempData, humData) {
+            const container = document.getElementById('dewpointReadings');
+
+            // Attic sensor
+            const atticName = allSensors.find(n => n.toLowerCase() === 'attic');
+            let atticDP = null;
+            if (atticName) {
+                const tPts = tempData[atticName];
+                const hPts = humData[atticName];
+                const t = tPts && tPts.length ? tPts[tPts.length - 1].v : null;
+                const h = hPts && hPts.length ? hPts[hPts.length - 1].v : null;
+                if (t !== null && h !== null) atticDP = calcDewPoint(t, h);
+            }
+
+            // Average favorites dew point
+            let favDP = null;
+            const favNames = [...favorites].filter(n => n !== '__favorites__');
+            if (favNames.length > 0) {
+                const dps = favNames.map(name => {
+                    const tPts = tempData[name];
+                    const hPts = humData[name];
+                    const t = tPts && tPts.length ? tPts[tPts.length - 1].v : null;
+                    const h = hPts && hPts.length ? hPts[hPts.length - 1].v : null;
+                    return (t !== null && h !== null) ? calcDewPoint(t, h) : null;
+                }).filter(v => v !== null);
+                if (dps.length) favDP = dps.reduce((s, v) => s + v, 0) / dps.length;
+            }
+
+            const rows = [];
+
+            if (atticDP !== null) {
+                let deltaHtml = '';
+                if (favDP !== null) {
+                    const diff = atticDP - favDP;
+                    const sign = diff >= 0 ? '+' : '';
+                    const cls = diff > 0 ? 'wetter' : 'drier';
+                    // outside wetter = higher dew point = bringing in more humidity
+                    deltaHtml = `<span class="dp-delta ${cls}">${sign}${diff.toFixed(1)}&deg;</span>`;
+                }
+                rows.push(`<div class="dp-row">
+                    <span class="dp-label" title="${atticName || 'Attic'}">Attic</span>
+                    ${deltaHtml}
+                    <span class="dp-value">${atticDP.toFixed(1)}&deg;</span>
+                </div>`);
+            }
+
+            if (favDP !== null) {
+                rows.push(`<div class="dp-row">
+                    <span class="dp-label">Avg Indoor</span>
+                    <span class="dp-value">${favDP.toFixed(1)}&deg;</span>
+                </div>`);
+            }
+
+            if (rows.length === 0) {
+                container.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,0.3)">No data — add favorites &amp; ensure Attic sensor is active.</div>';
+            } else {
+                container.innerHTML = rows.join('');
+            }
         }
 
         // ── Floor Plan tab ───────────────────────────────────────────
