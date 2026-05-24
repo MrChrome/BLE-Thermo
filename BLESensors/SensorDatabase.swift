@@ -120,8 +120,8 @@ class SensorDatabase {
         /// Bucket size in seconds for downsampling long ranges. Nil means return raw rows.
         var downsampleBucket: Int? {
             switch self {
-            case .month: return 86_400        // one point per day
-            case .year:  return 86_400 * 7    // one point per week
+            case .month: return 43_200        // one point per 12 hours (~60 pts)
+            case .year:  return 86_400 * 3    // one point per 3 days (~122 pts)
             default:     return nil
             }
         }
