@@ -442,6 +442,31 @@ enum WebDashboardHTML {
                 color: rgba(255,255,255,0.35);
                 font-style: italic;
             }
+            /* RH / Dew Point toggle */
+            .metric-toggle {
+                display: flex;
+                background: rgba(255,255,255,0.07);
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: 7px;
+                overflow: hidden;
+                flex-shrink: 0;
+            }
+            .metric-toggle-btn {
+                padding: 3px 11px;
+                font-size: 12px;
+                font-weight: 500;
+                border: none;
+                background: none;
+                color: rgba(255,255,255,0.4);
+                cursor: pointer;
+                transition: all 0.15s;
+                white-space: nowrap;
+            }
+            .metric-toggle-btn:hover { color: rgba(255,255,255,0.75); }
+            .metric-toggle-btn.active {
+                background: rgba(74,158,255,0.3);
+                color: #fff;
+            }
         </style>
     </head>
     <body>
@@ -469,7 +494,13 @@ enum WebDashboardHTML {
                             <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <h2>Humidity (%)</h2>
+                            <h2 style="display:flex;justify-content:space-between;align-items:center">
+                                <span id="humChartLabel">Humidity (%)</span>
+                                <div class="metric-toggle">
+                                    <button class="metric-toggle-btn active" id="btnRH" onclick="setHumMode('rh')">RH %</button>
+                                    <button class="metric-toggle-btn" id="btnDP" onclick="setHumMode('dp')">Dew Point</button>
+                                </div>
+                            </h2>
                             <div class="chart-wrap"><canvas id="humChart"></canvas></div>
                         </div>
                     </div>
@@ -610,6 +641,7 @@ enum WebDashboardHTML {
         let currentSensor = favorites.size > 0 ? '__favorites__' : '';
         let tempChart = null;
         let humChart = null;
+        let showDewPoint = localStorage.getItem('bleShowDP') === 'true';
 
         function saveFavorites() {
             localStorage.setItem('bleFavorites', JSON.stringify([...favorites]));
@@ -650,6 +682,21 @@ enum WebDashboardHTML {
                     favBtn.title = 'Add to favorites';
                 }
             }
+        }
+
+        function setHumMode(mode) {
+            showDewPoint = mode === 'dp';
+            localStorage.setItem('bleShowDP', showDewPoint);
+            document.getElementById('btnRH').classList.toggle('active', !showDewPoint);
+            document.getElementById('btnDP').classList.toggle('active', showDewPoint);
+            document.getElementById('humChartLabel').textContent = showDewPoint ? 'Dew Point (\\u00B0F)' : 'Humidity (%)';
+            loadData();
+        }
+
+        function applyHumModeUI() {
+            document.getElementById('btnRH').classList.toggle('active', !showDewPoint);
+            document.getElementById('btnDP').classList.toggle('active', showDewPoint);
+            document.getElementById('humChartLabel').textContent = showDewPoint ? 'Dew Point (\\u00B0F)' : 'Humidity (%)';
         }
 
         const picker = document.getElementById('rangePicker');
@@ -892,7 +939,16 @@ enum WebDashboardHTML {
 
                 const tempDS = buildDatasets(tempData);
                 if (!currentSensor || currentSensor === '__favorites__') addTempReferenceLines(tempDS);
-                const humDS = buildDatasets(humData);
+                let secondaryData = humData;
+                if (showDewPoint) {
+                    secondaryData = {};
+                    Object.keys(humData).forEach(name => {
+                        const tPts = tempData[name];
+                        const hPts = humData[name];
+                        if (tPts && hPts) secondaryData[name] = computeDewPointSeries(tPts, hPts);
+                    });
+                }
+                const humDS = buildDatasets(secondaryData);
 
                 if (!tempChart) {
                     tempChart = makeChart(document.getElementById('tempChart'), tempDS, unit);
@@ -945,6 +1001,16 @@ enum WebDashboardHTML {
             const gamma = (a * tc / (b + tc)) + Math.log(humPct / 100);
             const dpC = b * gamma / (a - gamma);
             return dpC * 9 / 5 + 32;
+        }
+
+        function computeDewPointSeries(tempPts, humPts) {
+            if (!tempPts || !humPts) return [];
+            const len = Math.min(tempPts.length, humPts.length);
+            const result = [];
+            for (let i = 0; i < len; i++) {
+                result.push({ t: tempPts[i].t, v: calcDewPoint(tempPts[i].v, humPts[i].v) });
+            }
+            return result;
         }
 
         function renderDewPointPanel(tempData, humData) {
@@ -1289,6 +1355,7 @@ enum WebDashboardHTML {
 
         // ── Init ─────────────────────────────────────────────────────
         (async () => {
+            applyHumModeUI();
             await loadSensors();
             // Load floor plan positions early
             try {
