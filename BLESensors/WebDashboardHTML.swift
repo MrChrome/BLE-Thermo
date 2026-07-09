@@ -527,23 +527,35 @@ enum WebDashboardHTML {
                         <input type="file" id="fpFileInput" accept="image/*" style="display:none" onchange="handleFloorPlanUpload(event)">
                     </label>
                 </div>
-                <div id="fpContent">
-                    <!-- Upload area (shown when no image) -->
-                    <label class="fp-upload-area" id="fpUploadArea" for="fpFileInputMain">
-                        <span class="fp-upload-icon">&#127968;</span>
-                        <span>Upload a floor plan image</span>
-                        <span style="font-size:12px;opacity:0.6">JPG, PNG, or any image file</span>
-                        <input type="file" id="fpFileInputMain" accept="image/*" style="display:none" onchange="handleFloorPlanUpload(event)">
-                    </label>
-                    <!-- Image + pins (shown when image exists) -->
-                    <div class="fp-image-area" id="fpImageArea" style="display:none">
-                        <div class="fp-image-wrap view-mode" id="fpImageWrap">
-                            <img class="fp-image" id="fpImage" src="" alt="Floor Plan">
-                            <div class="fp-pins-layer" id="fpPinsLayer"></div>
+                <div class="main-layout">
+                    <div class="charts-col" id="fpContent">
+                        <!-- Upload area (shown when no image) -->
+                        <label class="fp-upload-area" id="fpUploadArea" for="fpFileInputMain">
+                            <span class="fp-upload-icon">&#127968;</span>
+                            <span>Upload a floor plan image</span>
+                            <span style="font-size:12px;opacity:0.6">JPG, PNG, or any image file</span>
+                            <input type="file" id="fpFileInputMain" accept="image/*" style="display:none" onchange="handleFloorPlanUpload(event)">
+                        </label>
+                        <!-- Image + pins (shown when image exists) -->
+                        <div class="fp-image-area" id="fpImageArea" style="display:none">
+                            <div class="fp-image-wrap view-mode" id="fpImageWrap">
+                                <img class="fp-image" id="fpImage" src="" alt="Floor Plan">
+                                <div class="fp-pins-layer" id="fpPinsLayer"></div>
+                            </div>
+                            <div class="fp-unplaced-panel" id="fpUnplacedPanel" style="display:none">
+                                <div class="fp-unplaced-label">Unplaced Sensors — click a sensor then click on the map to place it</div>
+                                <div class="fp-unplaced-chips" id="fpUnplacedChips"></div>
+                            </div>
                         </div>
-                        <div class="fp-unplaced-panel" id="fpUnplacedPanel" style="display:none">
-                            <div class="fp-unplaced-label">Unplaced Sensors — click a sensor then click on the map to place it</div>
-                            <div class="fp-unplaced-chips" id="fpUnplacedChips"></div>
+                    </div>
+                    <div class="side-col">
+                        <div class="current-panel">
+                            <h2>Current</h2>
+                            <div id="fpCurrentReadings"></div>
+                        </div>
+                        <div class="dewpoint-panel">
+                            <h2>Dew Point (&deg;F)</h2>
+                            <div id="fpDewpointReadings"></div>
                         </div>
                     </div>
                 </div>
@@ -970,7 +982,6 @@ enum WebDashboardHTML {
         }
 
         function renderCurrentReadings(tempData, humData) {
-            const container = document.getElementById('currentReadings');
             const rows = allSensors
                 .map(name => {
                     const tPts = tempData[name];
@@ -982,7 +993,7 @@ enum WebDashboardHTML {
                 .filter(r => r.temp !== null)
                 .sort((a, b) => b.temp - a.temp);
 
-            container.innerHTML = rows.map(r => {
+            const html = rows.map(r => {
                 const color = sensorColorMap[r.name] || '#4A9EFF';
                 const humStr = r.hum !== null ? r.hum.toFixed(0) + '%' : '';
                 return `<div class="current-sensor-row">
@@ -992,6 +1003,11 @@ enum WebDashboardHTML {
                     <span class="current-sensor-temp">${r.temp.toFixed(1)}&deg;</span>
                 </div>`;
             }).join('');
+
+            const c1 = document.getElementById('currentReadings');
+            if (c1) c1.innerHTML = html;
+            const c2 = document.getElementById('fpCurrentReadings');
+            if (c2) c2.innerHTML = html;
         }
 
         // Dew point via Magnus formula; inputs in °F / %, output in °F
@@ -1015,6 +1031,7 @@ enum WebDashboardHTML {
 
         function renderDewPointPanel(tempData, humData) {
             const container = document.getElementById('dewpointReadings');
+            const fpContainer = document.getElementById('fpDewpointReadings');
 
             // Attic sensor
             const atticName = allSensors.find(n => n.toLowerCase() === 'attic');
@@ -1066,11 +1083,11 @@ enum WebDashboardHTML {
                 </div>`);
             }
 
-            if (rows.length === 0) {
-                container.innerHTML = '<div style="font-size:11px;color:rgba(255,255,255,0.3)">No data — add favorites &amp; ensure Attic sensor is active.</div>';
-            } else {
-                container.innerHTML = rows.join('');
-            }
+            const html = rows.length === 0
+                ? '<div style="font-size:11px;color:rgba(255,255,255,0.3)">No data — add favorites &amp; ensure Attic sensor is active.</div>'
+                : rows.join('');
+            if (container) container.innerHTML = html;
+            if (fpContainer) fpContainer.innerHTML = html;
         }
 
         // ── Floor Plan tab ───────────────────────────────────────────
