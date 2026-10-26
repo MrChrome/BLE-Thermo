@@ -3,6 +3,7 @@ import Network
 
 class WebServer {
     private let database: SensorDatabase
+    private let store: SensorStore
     private var listener: NWListener?
 
     private var dashboardTitle: String {
@@ -25,8 +26,9 @@ class WebServer {
         set { UserDefaults.standard.set(newValue, forKey: "sensorPositions") }
     }
 
-    init(database: SensorDatabase) {
+    init(database: SensorDatabase, store: SensorStore) {
         self.database = database
+        self.store = store
     }
 
     func start() {
@@ -168,6 +170,17 @@ class WebServer {
             let json = "{\"sensors\":[\(names.map { "\"\(escapeJSON($0))\"" }.joined(separator: ","))]}"
             sendResponse(on: connection, status: "200 OK",
                          contentType: "application/json", body: json)
+
+        case "/api/battery":
+            // Live readings belong to the main thread; requests arrive on a background queue.
+            DispatchQueue.main.async {
+                let entries = self.store.sensors
+                    .filter { $0.battery >= 0 }
+                    .map { "{\"name\":\"\(self.escapeJSON($0.displayName))\",\"battery\":\($0.battery)}" }
+                let json = "{\"sensors\":[\(entries.joined(separator: ","))]}"
+                self.sendResponse(on: connection, status: "200 OK",
+                                  contentType: "application/json", body: json)
+            }
 
         case "/api/data":
             let range = timeRange(from: query["range"] ?? "day")

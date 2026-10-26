@@ -12,237 +12,326 @@ enum WebDashboardHTML {
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
         <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
         <style>
+            :root {
+                --bg: #111213;
+                --surface: #18191b;
+                --surface-2: #202124;
+                --surface-3: #2a2b2f;
+                --line: #2b2c30;
+                --line-soft: #222326;
+                --text: #e9e7e3;
+                --text-2: #a8a5a0;
+                --text-3: #6e6c68;
+                --accent: #e3a33b;
+                --accent-dim: rgba(227,163,59,0.14);
+                --warm: #e5835f;
+                --cool: #6aa6d8;
+                --danger: #e8604c;
+                --good: #7fb685;
+                --radius: 6px;
+            }
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
-                font-family: -apple-system, BlinkMacSystemFont, "SF Pro", system-ui, sans-serif;
-                background: #1a1a2e;
-                color: #e0e0e0;
+                font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+                font-size: 14px;
+                background: var(--bg);
+                color: var(--text);
                 min-height: 100vh;
-                padding: 24px;
+                padding: 28px 24px;
+                -webkit-font-smoothing: antialiased;
             }
             .container { max-width: 960px; margin: 0 auto; }
             h1 {
-                font-size: 1.5rem;
+                font-size: 1.25rem;
                 font-weight: 600;
-                margin-bottom: 16px;
-                color: #fff;
+                letter-spacing: -0.01em;
+                margin-bottom: 18px;
+                color: var(--text);
                 cursor: pointer;
                 display: inline-block;
             }
-            h1:hover { opacity: 0.8; }
+            h1:hover { color: var(--text-2); }
             h1[contenteditable="true"] {
                 outline: none;
-                border-bottom: 2px solid rgba(74,158,255,0.7);
+                border-bottom: 1px solid var(--accent);
                 cursor: text;
                 padding-bottom: 2px;
-                opacity: 1;
+                color: var(--text);
             }
             /* Tab bar */
             .tab-bar {
                 display: flex;
-                gap: 0;
+                gap: 24px;
                 margin-bottom: 20px;
-                border-bottom: 1px solid rgba(255,255,255,0.1);
+                border-bottom: 1px solid var(--line);
             }
             .tab-btn {
-                padding: 8px 22px;
+                padding: 0 0 10px;
                 border: none;
                 border-bottom: 2px solid transparent;
                 background: none;
-                color: rgba(255,255,255,0.45);
-                font-size: 14px;
+                color: var(--text-3);
+                font: inherit;
                 font-weight: 500;
                 cursor: pointer;
-                transition: all 0.15s;
                 margin-bottom: -1px;
-                letter-spacing: 0.01em;
             }
-            .tab-btn:hover { color: rgba(255,255,255,0.8); }
-            .tab-btn.active { color: #fff; border-bottom-color: #4A9EFF; }
+            .tab-btn:hover { color: var(--text-2); }
+            .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
             .tab-content { display: none; }
             .tab-content.active { display: block; }
-            /* Charts tab */
-            .range-picker {
+            /* Charts tab: segmented controls */
+            .range-picker, .metric-toggle {
+                display: inline-flex;
+                flex-wrap: wrap;
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                padding: 2px;
+                gap: 2px;
+            }
+            .range-btn, .metric-toggle-btn {
+                padding: 5px 11px;
+                border: none;
+                border-radius: 4px;
+                background: none;
+                color: var(--text-2);
+                font: inherit;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            .range-btn:hover, .metric-toggle-btn:hover { color: var(--text); }
+            .range-btn.active, .metric-toggle-btn.active {
+                background: #333438;
+                color: var(--text);
+            }
+            .metric-toggle { flex-shrink: 0; }
+            .metric-toggle-btn { padding: 3px 9px; font-size: 12px; font-weight: 400; }
+            .controls-row {
                 display: flex;
-                gap: 4px;
+                gap: 8px;
+                align-items: flex-start;
                 margin-bottom: 16px;
                 flex-wrap: wrap;
             }
-            .range-btn {
-                padding: 6px 14px;
-                border: 1px solid rgba(255,255,255,0.15);
-                border-radius: 8px;
-                background: rgba(255,255,255,0.05);
-                color: rgba(255,255,255,0.7);
-                font-size: 13px;
-                cursor: pointer;
-                transition: all 0.15s;
-            }
-            .range-btn:hover { background: rgba(255,255,255,0.1); }
-            .range-btn.active {
-                background: rgba(74,158,255,0.25);
-                border-color: rgba(74,158,255,0.5);
-                color: #fff;
-            }
-            .controls-row {
-                display: flex;
-                gap: 12px;
-                align-items: flex-start;
-                margin-bottom: 16px;
-            }
-            .controls-row .range-picker { margin-bottom: 0; }
             .sensor-select {
-                padding: 6px 14px;
-                padding-right: 30px;
-                border: 1px solid rgba(255,255,255,0.15);
-                border-radius: 8px;
-                background: rgba(255,255,255,0.08);
-                color: #fff;
+                height: 33px;
+                padding: 0 30px 0 12px;
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                background-color: var(--surface);
+                color: var(--text);
+                font: inherit;
                 font-size: 13px;
                 cursor: pointer;
                 appearance: none;
                 -webkit-appearance: none;
-                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,0.6)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5l3 3 3-3' fill='none' stroke='%23a8a5a0' stroke-width='1.4'/%3E%3C/svg%3E");
                 background-repeat: no-repeat;
-                background-position: right 10px center;
+                background-position: right 11px center;
                 flex-shrink: 0;
             }
-            .sensor-select:focus {
-                outline: none;
-                border-color: rgba(74,158,255,0.5);
-            }
-            .sensor-select option { background: #1a1a2e; color: #e0e0e0; }
+            .sensor-select:hover { border-color: var(--surface-3); }
+            .sensor-select:focus { outline: none; border-color: var(--accent); }
+            .sensor-select option { background: var(--surface); color: var(--text); }
             .fav-btn {
-                padding: 6px 10px;
-                border: 1px solid rgba(255,255,255,0.15);
-                border-radius: 8px;
-                background: rgba(255,255,255,0.05);
-                color: rgba(255,200,50,0.8);
+                height: 33px;
+                width: 33px;
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                background: var(--surface);
+                color: var(--text-3);
                 font-size: 15px;
                 cursor: pointer;
-                transition: all 0.15s;
                 flex-shrink: 0;
                 line-height: 1;
             }
-            .fav-btn:hover { background: rgba(255,255,255,0.1); }
-            .fav-btn.active {
-                background: rgba(255,200,50,0.15);
-                border-color: rgba(255,200,50,0.4);
-                color: #FFC832;
-            }
+            .fav-btn:hover { color: var(--text-2); }
+            .fav-btn.active { color: var(--accent); border-color: rgba(227,163,59,0.4); }
             .chart-card {
-                background: rgba(255,255,255,0.04);
-                border: 1px solid rgba(255,255,255,0.08);
-                border-radius: 12px;
-                padding: 20px;
-                margin-bottom: 16px;
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                padding: 16px 18px 12px;
+                margin-bottom: 12px;
             }
             .chart-card h2 {
-                font-size: 0.95rem;
+                font-size: 13px;
                 font-weight: 600;
-                margin-bottom: 12px;
-                color: rgba(255,255,255,0.85);
+                margin-bottom: 14px;
+                color: var(--text);
             }
             .chart-wrap { position: relative; height: 260px; }
             .loading {
                 text-align: center;
                 padding: 40px;
-                color: rgba(255,255,255,0.4);
-                font-size: 14px;
+                color: var(--text-3);
             }
             .main-layout {
                 display: flex;
-                gap: 16px;
+                gap: 12px;
                 align-items: flex-start;
             }
             .charts-col { flex: 1; min-width: 0; }
             .side-col {
                 display: none;
-                width: 220px;
+                width: 230px;
                 flex-shrink: 0;
                 position: sticky;
                 top: 24px;
                 flex-direction: column;
                 gap: 12px;
             }
+            /* Low battery banner */
+            .battery-alert {
+                display: none;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 20px;
+                padding: 16px 20px;
+                border-radius: var(--radius);
+                border: 1px solid rgba(232,96,76,0.35);
+                border-left: 4px solid var(--danger);
+                background: #211614;
+            }
+            .battery-alert svg { width: 40px; height: 40px; flex-shrink: 0; color: var(--danger); }
+            .battery-alert-title {
+                font-size: 1.5rem;
+                font-weight: 600;
+                letter-spacing: -0.01em;
+                color: #f3c2b9;
+                line-height: 1.15;
+            }
+            .battery-alert-list {
+                margin-top: 4px;
+                color: var(--text-2);
+                font-variant-numeric: tabular-nums;
+            }
+            @media (max-width: 560px) {
+                .battery-alert { gap: 12px; padding: 12px 14px; }
+                .battery-alert svg { width: 32px; height: 32px; }
+                .battery-alert-title { font-size: 1.2rem; }
+            }
+            /* Single-sensor trend banner */
+            .sensor-trend {
+                display: none;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 12px;
+                padding: 14px 20px;
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-left: 4px solid var(--st-color);
+                border-radius: var(--radius);
+                font-variant-numeric: tabular-nums;
+            }
+            .sensor-trend.rising  { --st-color: var(--warm); }
+            .sensor-trend.falling { --st-color: var(--cool); }
+            .st-arrow { width: 36px; height: 36px; flex-shrink: 0; color: var(--st-color); }
+            .st-arrow svg { display: block; width: 100%; height: 100%; }
+            .sensor-trend.rising  .st-arrow { transform: rotate(-45deg); }
+            .sensor-trend.falling .st-arrow { transform: rotate(45deg); }
+            .st-main { flex: 1; min-width: 0; }
+            .st-label {
+                font-size: 1.5rem;
+                font-weight: 600;
+                letter-spacing: -0.01em;
+                color: var(--st-color);
+                line-height: 1.15;
+            }
+            .st-sub { margin-top: 3px; font-size: 13px; color: var(--text-2); }
+            .st-temp {
+                font-size: 2rem;
+                font-weight: 600;
+                color: var(--text);
+                line-height: 1;
+                white-space: nowrap;
+                text-align: right;
+            }
+            .st-hum { display: block; margin-top: 4px; font-size: 12px; font-weight: 400; color: var(--text-3); }
+            @media (max-width: 560px) {
+                .sensor-trend { gap: 12px; padding: 12px 14px; }
+                .st-arrow { width: 28px; height: 28px; }
+                .st-label { font-size: 1.2rem; }
+                .st-temp { font-size: 1.5rem; }
+            }
+            /* Side panels */
             .current-panel, .dewpoint-panel {
-                background: rgba(255,255,255,0.04);
-                border: 1px solid rgba(255,255,255,0.08);
-                border-radius: 12px;
-                padding: 16px;
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                padding: 12px 14px 6px;
             }
             .current-panel h2, .dewpoint-panel h2 {
-                font-size: 0.85rem;
+                font-size: 13px;
                 font-weight: 600;
-                color: rgba(255,255,255,0.6);
-                text-transform: uppercase;
-                letter-spacing: 0.06em;
-                margin-bottom: 12px;
+                color: var(--text);
+                padding-bottom: 8px;
+                border-bottom: 1px solid var(--line);
             }
-            .current-sensor-row {
+            .current-sensor-row, .dp-row {
                 display: flex;
                 align-items: baseline;
                 justify-content: space-between;
                 padding: 7px 0;
-                border-bottom: 1px solid rgba(255,255,255,0.06);
+                border-bottom: 1px solid var(--line-soft);
                 gap: 8px;
+                font-variant-numeric: tabular-nums;
             }
-            .current-sensor-row:last-child { border-bottom: none; }
-            .current-sensor-name {
-                font-size: 12px;
-                color: rgba(255,255,255,0.6);
+            .current-sensor-row:last-child, .dp-row:last-child { border-bottom: none; }
+            .current-sensor-row {
+                cursor: pointer;
+                margin: 0 -14px;
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+            .current-sensor-row:hover { background: var(--surface-2); }
+            .current-sensor-row:hover .current-sensor-name { color: var(--text); }
+            .current-sensor-name, .dp-label {
+                font-size: 13px;
+                color: var(--text-2);
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 flex: 1;
             }
-            .current-sensor-temp {
-                font-size: 15px;
+            .current-sensor-temp, .dp-value {
+                font-size: 14px;
                 font-weight: 600;
-                color: #fff;
+                color: var(--text);
                 white-space: nowrap;
             }
+            .trend-arrow {
+                display: inline-block;
+                width: 0.75em;
+                height: 0.75em;
+                margin-right: 5px;
+                vertical-align: -0.02em;
+            }
+            .trend-arrow svg { display: block; width: 100%; height: 100%; }
+            .trend-arrow.up   { color: var(--warm); transform: rotate(-45deg); }
+            .trend-arrow.flat { color: var(--text-3); }
+            .trend-arrow.down { color: var(--cool); transform: rotate(45deg); }
             .current-sensor-hum {
-                font-size: 11px;
-                color: rgba(255,255,255,0.4);
+                font-size: 12px;
+                color: var(--text-3);
                 white-space: nowrap;
             }
             .current-dot {
-                width: 7px;
-                height: 7px;
-                border-radius: 50%;
+                width: 3px;
+                height: 12px;
+                border-radius: 1px;
                 flex-shrink: 0;
-                margin-right: 2px;
+                align-self: center;
             }
-            .dp-row {
-                display: flex;
-                align-items: baseline;
-                justify-content: space-between;
-                padding: 7px 0;
-                border-bottom: 1px solid rgba(255,255,255,0.06);
-                gap: 8px;
-            }
-            .dp-row:last-child { border-bottom: none; }
-            .dp-label {
-                font-size: 12px;
-                color: rgba(255,255,255,0.6);
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                flex: 1;
-            }
-            .dp-value {
-                font-size: 15px;
-                font-weight: 600;
-                color: #fff;
-                white-space: nowrap;
-            }
+            .dp-outside:not(:empty) { border-top: 1px solid var(--line-soft); }
             .dp-delta {
-                font-size: 11px;
+                font-size: 12px;
                 white-space: nowrap;
             }
-            .dp-delta.drier { color: #F87171; }
-            .dp-delta.wetter { color: #34D399; }
+            .dp-delta.drier { color: var(--danger); }
+            .dp-delta.wetter { color: var(--good); }
             @media (min-width: 900px) {
                 .container { max-width: 1160px; }
                 .side-col { display: flex; }
@@ -258,61 +347,49 @@ enum WebDashboardHTML {
             }
             .fp-toolbar-spacer { flex: 1; }
             .fp-btn {
-                padding: 6px 16px;
-                border: 1px solid rgba(255,255,255,0.15);
-                border-radius: 8px;
-                background: rgba(255,255,255,0.05);
-                color: rgba(255,255,255,0.8);
+                padding: 6px 14px;
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                background: var(--surface);
+                color: var(--text-2);
+                font: inherit;
                 font-size: 13px;
                 cursor: pointer;
-                transition: all 0.15s;
                 white-space: nowrap;
             }
-            .fp-btn:hover { background: rgba(255,255,255,0.1); }
-            .fp-btn.primary {
-                background: rgba(74,158,255,0.2);
-                border-color: rgba(74,158,255,0.4);
-                color: #4A9EFF;
-            }
-            .fp-btn.primary:hover { background: rgba(74,158,255,0.3); }
+            .fp-btn:hover { color: var(--text); border-color: var(--surface-3); }
+            .fp-btn.primary { color: var(--text); }
+            .fp-btn.primary:hover { border-color: var(--accent); }
             .fp-btn.danger {
-                background: rgba(248,113,113,0.1);
-                border-color: rgba(248,113,113,0.3);
-                color: #F87171;
+                border-color: rgba(232,96,76,0.35);
+                color: var(--danger);
             }
             .fp-upload-area {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: 12px;
+                gap: 10px;
                 min-height: 300px;
-                border: 2px dashed rgba(255,255,255,0.12);
-                border-radius: 16px;
-                color: rgba(255,255,255,0.4);
-                font-size: 14px;
+                border: 1px dashed var(--surface-3);
+                border-radius: var(--radius);
+                color: var(--text-3);
                 cursor: pointer;
-                transition: all 0.2s;
             }
             .fp-upload-area:hover, .fp-upload-area.drag-over {
-                border-color: rgba(74,158,255,0.5);
-                background: rgba(74,158,255,0.05);
-                color: rgba(255,255,255,0.7);
+                border-color: var(--accent);
+                color: var(--text-2);
             }
-            .fp-upload-icon {
-                font-size: 48px;
-                opacity: 0.4;
-                line-height: 1;
-            }
+            .fp-upload-icon { width: 40px; height: 40px; color: var(--text-3); }
             /* Image area */
             .fp-image-area { position: relative; }
             .fp-image-wrap {
                 position: relative;
                 display: inline-block;
                 max-width: 100%;
-                border-radius: 12px;
+                border-radius: var(--radius);
                 overflow: hidden;
-                background: rgba(0,0,0,0.3);
+                background: var(--surface);
                 cursor: crosshair;
                 user-select: none;
             }
@@ -342,69 +419,62 @@ enum WebDashboardHTML {
             }
             .fp-pin.dragging { z-index: 100; transition: none; opacity: 0.85; }
             .fp-pin-label {
-                background: rgba(15,15,30,0.88);
-                border: 1px solid rgba(255,255,255,0.12);
+                background: rgba(17,18,19,0.94);
+                border: 1px solid #000;
                 border-left-width: 3px;
-                border-radius: 7px;
-                padding: 4px 8px;
+                border-radius: 4px;
+                padding: 3px 8px 4px;
                 white-space: nowrap;
-                font-size: 11px;
-                line-height: 1.5;
-                text-align: center;
-                backdrop-filter: blur(8px);
+                line-height: 1.35;
+                text-align: left;
                 pointer-events: none;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+                box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+                font-variant-numeric: tabular-nums;
             }
             .fp-pin-name {
                 display: block;
-                color: rgba(255,255,255,0.7);
+                color: var(--text-2);
                 font-size: 10px;
-                margin-bottom: 1px;
             }
             .fp-pin-readings {
                 display: flex;
-                gap: 5px;
+                gap: 6px;
                 align-items: baseline;
-                justify-content: center;
             }
-            .fp-pin-temp { color: #fff; font-weight: 600; font-size: 13px; }
-            .fp-pin-hum { color: rgba(255,255,255,0.45); font-size: 10px; }
+            .fp-pin-temp { color: var(--text); font-weight: 600; font-size: 13px; }
+            .fp-pin-hum { color: var(--text-3); font-size: 10px; }
             .fp-pin-remove {
                 position: absolute;
-                top: -5px;
-                right: -22px;
+                top: -6px;
+                right: -20px;
                 width: 18px; height: 18px;
                 border-radius: 50%;
-                background: #F87171;
+                background: var(--danger);
                 border: none;
-                color: white;
+                color: #fff;
                 font-size: 13px;
-                font-weight: bold;
+                font-weight: 600;
                 cursor: pointer;
                 line-height: 1;
                 display: flex; align-items: center; justify-content: center;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.4);
                 pointer-events: all;
             }
             .fp-pin.edit-mode { cursor: grab; }
             .fp-pin.edit-mode:active { cursor: grabbing; }
             .fp-pin.selected .fp-pin-label {
-                box-shadow: 0 0 0 2px rgba(74,158,255,0.6), 0 2px 10px rgba(0,0,0,0.45);
+                box-shadow: 0 0 0 2px var(--accent);
             }
             /* Unplaced sensors panel */
             .fp-unplaced-panel {
-                margin-top: 16px;
-                background: rgba(255,255,255,0.03);
-                border: 1px solid rgba(255,255,255,0.07);
-                border-radius: 12px;
-                padding: 14px 16px;
+                margin-top: 12px;
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                padding: 12px 14px;
             }
             .fp-unplaced-label {
-                font-size: 11px;
-                font-weight: 600;
-                color: rgba(255,255,255,0.4);
-                text-transform: uppercase;
-                letter-spacing: 0.07em;
+                font-size: 13px;
+                color: var(--text-2);
                 margin-bottom: 10px;
             }
             .fp-unplaced-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -412,66 +482,44 @@ enum WebDashboardHTML {
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
-                padding: 5px 12px;
-                border-radius: 20px;
-                border: 1px solid rgba(255,255,255,0.13);
-                background: rgba(255,255,255,0.05);
+                padding: 4px 10px;
+                border-radius: 4px;
+                border: 1px solid var(--line);
+                background: var(--surface-2);
                 cursor: pointer;
                 font-size: 12px;
-                color: rgba(255,255,255,0.75);
-                transition: all 0.15s;
+                color: var(--text-2);
             }
-            .fp-chip:hover {
-                background: rgba(74,158,255,0.12);
-                border-color: rgba(74,158,255,0.35);
-                color: #fff;
-            }
+            .fp-chip:hover { color: var(--text); border-color: var(--surface-3); }
             .fp-chip.selected {
-                background: rgba(74,158,255,0.2);
-                border-color: rgba(74,158,255,0.5);
-                color: #4A9EFF;
+                border-color: var(--accent);
+                background: var(--accent-dim);
+                color: var(--text);
             }
             .fp-chip-dot {
-                width: 8px; height: 8px;
-                border-radius: 50%;
+                width: 3px; height: 11px;
+                border-radius: 1px;
                 flex-shrink: 0;
             }
             .fp-hint {
                 margin-top: 10px;
                 font-size: 12px;
-                color: rgba(255,255,255,0.35);
-                font-style: italic;
+                color: var(--text-3);
             }
-            /* RH / Dew Point toggle */
-            .metric-toggle {
-                display: flex;
-                background: rgba(255,255,255,0.07);
-                border: 1px solid rgba(255,255,255,0.12);
-                border-radius: 7px;
-                overflow: hidden;
-                flex-shrink: 0;
-            }
-            .metric-toggle-btn {
-                padding: 3px 11px;
-                font-size: 12px;
-                font-weight: 500;
-                border: none;
-                background: none;
-                color: rgba(255,255,255,0.4);
-                cursor: pointer;
-                transition: all 0.15s;
-                white-space: nowrap;
-            }
-            .metric-toggle-btn:hover { color: rgba(255,255,255,0.75); }
-            .metric-toggle-btn.active {
-                background: rgba(74,158,255,0.3);
-                color: #fff;
-            }
+            .muted-note { font-size: 12px; color: var(--text-3); padding: 7px 0; }
         </style>
     </head>
     <body>
         <div class="container">
             <h1 id="pageTitle" title="Click to rename"></h1>
+
+            <div class="battery-alert" id="batteryAlert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4"/></svg>
+                <div>
+                    <div class="battery-alert-title" id="batteryAlertTitle"></div>
+                    <div class="battery-alert-list" id="batteryAlertList"></div>
+                </div>
+            </div>
 
             <div class="tab-bar">
                 <button class="tab-btn" onclick="switchTab('charts')">Charts</button>
@@ -487,15 +535,23 @@ enum WebDashboardHTML {
                     </select>
                     <button class="fav-btn" id="favBtn" title="Add to favorites">&#9733;</button>
                 </div>
+                <div class="sensor-trend" id="sensorTrend">
+                    <span class="st-arrow" id="stArrow"></span>
+                    <div class="st-main">
+                        <div class="st-label" id="stLabel"></div>
+                        <div class="st-sub" id="stSub"></div>
+                    </div>
+                    <div class="st-temp"><span id="stTemp"></span><span class="st-hum" id="stHum"></span></div>
+                </div>
                 <div class="main-layout">
                     <div class="charts-col">
                         <div class="chart-card">
-                            <h2>Temperature (&deg;F)</h2>
+                            <h2>Temperature &deg;F</h2>
                             <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <h2 style="display:flex;justify-content:space-between;align-items:center">
-                                <span id="humChartLabel">Humidity (%)</span>
+                            <h2 style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                                <span id="humChartLabel">Humidity %</span>
                                 <div class="metric-toggle">
                                     <button class="metric-toggle-btn active" id="btnRH" onclick="setHumMode('rh')">RH %</button>
                                     <button class="metric-toggle-btn" id="btnDP" onclick="setHumMode('dp')">Dew Point</button>
@@ -508,10 +564,12 @@ enum WebDashboardHTML {
                         <div class="current-panel" id="currentPanel">
                             <h2>Current</h2>
                             <div id="currentReadings"></div>
+                            <div class="dp-outside" id="currentOutside"></div>
                         </div>
                         <div class="dewpoint-panel" id="dewpointPanel">
-                            <h2>Dew Point (&deg;F)</h2>
+                            <h2>Dew point</h2>
                             <div id="dewpointReadings"></div>
+                            <div class="dp-outside" id="dewpointOutside"></div>
                         </div>
                     </div>
                 </div>
@@ -531,7 +589,7 @@ enum WebDashboardHTML {
                     <div class="charts-col" id="fpContent">
                         <!-- Upload area (shown when no image) -->
                         <label class="fp-upload-area" id="fpUploadArea" for="fpFileInputMain">
-                            <span class="fp-upload-icon">&#127968;</span>
+                            <svg class="fp-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9v12h14V9"/><path d="M10 21v-6h4v6"/></svg>
                             <span>Upload a floor plan image</span>
                             <span style="font-size:12px;opacity:0.6">JPG, PNG, or any image file</span>
                             <input type="file" id="fpFileInputMain" accept="image/*" style="display:none" onchange="handleFloorPlanUpload(event)">
@@ -543,7 +601,7 @@ enum WebDashboardHTML {
                                 <div class="fp-pins-layer" id="fpPinsLayer"></div>
                             </div>
                             <div class="fp-unplaced-panel" id="fpUnplacedPanel" style="display:none">
-                                <div class="fp-unplaced-label">Unplaced Sensors — click a sensor then click on the map to place it</div>
+                                <div class="fp-unplaced-label">Unplaced sensors: pick one, then click the map to place it</div>
                                 <div class="fp-unplaced-chips" id="fpUnplacedChips"></div>
                             </div>
                         </div>
@@ -552,10 +610,12 @@ enum WebDashboardHTML {
                         <div class="current-panel">
                             <h2>Current</h2>
                             <div id="fpCurrentReadings"></div>
+                            <div class="dp-outside" id="fpCurrentOutside"></div>
                         </div>
                         <div class="dewpoint-panel">
-                            <h2>Dew Point (&deg;F)</h2>
+                            <h2>Dew point</h2>
                             <div id="fpDewpointReadings"></div>
+                            <div class="dp-outside" id="fpDewpointOutside"></div>
                         </div>
                     </div>
                 </div>
@@ -577,8 +637,8 @@ enum WebDashboardHTML {
 
         // ── Shared state ─────────────────────────────────────────────
         const COLORS = [
-            '#4A9EFF','#34D399','#F472B6','#FBBF24',
-            '#A78BFA','#F87171','#38BDF8','#FB923C'
+            '#e3a33b','#6aa6d8','#7fb685','#d9776b','#b294bb',
+            '#5fb3b3','#cfc6b4','#8f9bb3','#e58fa8','#a3c46b'
         ];
         let allSensors = [];
         let sensorColorMap = {};
@@ -668,6 +728,22 @@ enum WebDashboardHTML {
             loadData();
         };
 
+        // Clicking a room in a Current panel jumps to its graph on the Charts tab.
+        function showSensorGraph(name) {
+            switchTab('charts');
+            sensorSelect.value = name;
+            currentSensor = name;
+            updateFavBtn();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            loadData();
+        }
+        ['currentReadings', 'fpCurrentReadings'].forEach(id => {
+            document.getElementById(id).addEventListener('click', e => {
+                const row = e.target.closest('.current-sensor-row');
+                if (row) showSensorGraph(row.dataset.sensor);
+            });
+        });
+
         favBtn.onclick = () => {
             if (!currentSensor || currentSensor === '__favorites__') return;
             if (favorites.has(currentSensor)) {
@@ -701,14 +777,14 @@ enum WebDashboardHTML {
             localStorage.setItem('bleShowDP', showDewPoint);
             document.getElementById('btnRH').classList.toggle('active', !showDewPoint);
             document.getElementById('btnDP').classList.toggle('active', showDewPoint);
-            document.getElementById('humChartLabel').textContent = showDewPoint ? 'Dew Point (\\u00B0F)' : 'Humidity (%)';
+            document.getElementById('humChartLabel').textContent = showDewPoint ? 'Dew point \\u00B0F' : 'Humidity %';
             loadData();
         }
 
         function applyHumModeUI() {
             document.getElementById('btnRH').classList.toggle('active', !showDewPoint);
             document.getElementById('btnDP').classList.toggle('active', showDewPoint);
-            document.getElementById('humChartLabel').textContent = showDewPoint ? 'Dew Point (\\u00B0F)' : 'Humidity (%)';
+            document.getElementById('humChartLabel').textContent = showDewPoint ? 'Dew point \\u00B0F' : 'Humidity %';
         }
 
         const picker = document.getElementById('rangePicker');
@@ -740,11 +816,11 @@ enum WebDashboardHTML {
                 .map(([name, points]) => ({
                     label: name,
                     data: points.map(p => ({ x: p.t * 1000, y: p.v })),
-                    borderColor: sensorColorMap[name] || '#4A9EFF',
-                    backgroundColor: (sensorColorMap[name] || '#4A9EFF') + '18',
-                    tension: 0.4,
+                    borderColor: sensorColorMap[name] || COLORS[0],
+                    backgroundColor: (sensorColorMap[name] || COLORS[0]) + '18',
+                    tension: 0.2,
                     pointRadius: 0,
-                    borderWidth: 2,
+                    borderWidth: 1.5,
                     fill: false
                 }));
 
@@ -786,7 +862,7 @@ enum WebDashboardHTML {
                 datasets.push({
                     label: temp + '\\u{00B0}F',
                     data: [{ x: xMin, y: temp }, { x: xMax, y: temp }],
-                    borderColor: 'rgba(255,255,255,0.22)',
+                    borderColor: 'rgba(255,255,255,0.18)',
                     backgroundColor: 'transparent',
                     borderWidth: 1,
                     borderDash: [4, 4],
@@ -823,6 +899,9 @@ enum WebDashboardHTML {
             }
         }
 
+        Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+        Chart.defaults.font.size = 11;
+
         function makeChart(canvas, datasets, unit) {
             return new Chart(canvas, {
                 type: 'line',
@@ -834,18 +913,20 @@ enum WebDashboardHTML {
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { color: 'rgba(255,255,255,0.7)', boxWidth: 12, padding: 16 },
+                            labels: { color: '#a8a5a0', boxWidth: 14, boxHeight: 2, padding: 14 },
                             onClick: legendClickHandler
                         },
                         tooltip: {
                             mode: 'index',
                             intersect: false,
-                            backgroundColor: 'rgba(30,30,50,0.95)',
-                            titleColor: 'rgba(255,255,255,0.6)',
-                            bodyColor: '#fff',
-                            borderColor: 'rgba(255,255,255,0.1)',
+                            backgroundColor: '#202124',
+                            titleColor: '#a8a5a0',
+                            bodyColor: '#e9e7e3',
+                            borderColor: '#2b2c30',
                             borderWidth: 1,
-                            cornerRadius: 8,
+                            cornerRadius: 4,
+                            boxWidth: 8,
+                            boxHeight: 8,
                             padding: 10,
                             callbacks: {
                                 label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1)
@@ -856,12 +937,14 @@ enum WebDashboardHTML {
                         x: {
                             type: 'time',
                             time: { unit: unit, tooltipFormat: 'PPp' },
-                            ticks: { color: 'rgba(255,255,255,0.5)', maxTicksLimit: 8 },
-                            grid: { color: 'rgba(255,255,255,0.06)' }
+                            ticks: { color: '#6e6c68', maxTicksLimit: 8 },
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            border: { color: '#2b2c30' }
                         },
                         y: {
-                            ticks: { color: 'rgba(255,255,255,0.5)' },
-                            grid: { color: 'rgba(255,255,255,0.06)' }
+                            ticks: { color: '#6e6c68' },
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            border: { display: false }
                         }
                     }
                 }
@@ -969,8 +1052,12 @@ enum WebDashboardHTML {
                     updateChart(tempChart, tempDS, unit);
                     updateChart(humChart, humDS, unit);
                 }
-                renderCurrentReadings(data.temperature, data.humidity);
+                // Coarse ranges lack per-minute rows, so fetch the last hour for trend arrows.
+                const hourData = FINE_RANGES.indexOf(currentRange) !== -1 ? data : await fetchHourData();
+                renderCurrentReadings(data.temperature, data.humidity, hourData && hourData.temperature);
+                renderSensorTrend(hourData);
                 renderDewPointPanel(allData.temperature, allData.humidity);
+                await loadBatteryAlert();
 
                 // Refresh floor plan pins if visible
                 if (document.getElementById('tab-floorplan').classList.contains('active')) {
@@ -981,26 +1068,125 @@ enum WebDashboardHTML {
             }
         }
 
-        function renderCurrentReadings(tempData, humData) {
+        // ── Trend arrows ─────────────────────────────────
+        // Ranges that return raw 60-second rows, so a short trailing window is meaningful.
+        const FINE_RANGES = ['hour', '6h', 'today', 'day'];
+        const TREND_WINDOW_SEC = 60 * 60;
+        const BANNER_WINDOW_SEC = 30 * 60; // single-sensor banner reacts faster than the arrows
+        const TREND_STEADY_RATE = 0.5;   // °F/hr below which we call it steady
+        const TREND_FAST_RATE = 2.0;     // °F/hr above which we call it fast
+        const TREND_STALE_SEC = 20 * 60; // readings older than this can't describe "now"
+
+        function isStale(points) {
+            if (!points || points.length === 0) return true;
+            return (Date.now() / 1000) - points[points.length - 1].t > TREND_STALE_SEC;
+        }
+
+        // Least-squares slope over the trailing window, in °F per hour.
+        function trendOf(points, windowSec = TREND_WINDOW_SEC) {
+            if (!points || points.length < 2) return null;
+            const lastT = points[points.length - 1].t;
+            let win = points.filter(p => lastT - p.t <= windowSec);
+            if (win.length < 3) win = points.slice(-3);
+            if (win.length < 2) return null;
+            const t0 = win[0].t;
+            const n = win.length;
+            let sx = 0, sy = 0, sxx = 0, sxy = 0;
+            win.forEach(p => {
+                const x = (p.t - t0) / 3600;
+                sx += x; sy += p.v; sxx += x * x; sxy += x * p.v;
+            });
+            const denom = n * sxx - sx * sx;
+            if (denom === 0) return null;
+            const rate = (n * sxy - sx * sy) / denom;
+            const spanHours = (win[win.length - 1].t - t0) / 3600;
+            return {
+                rate: rate,
+                change: rate * spanHours,
+                spanMin: spanHours * 60,
+                value: win[win.length - 1].v
+            };
+        }
+
+        // Called sequentially from loadData — the server serializes /api/data,
+        // so never overlap these requests.
+        async function fetchHourData() {
+            try {
+                const resp = await fetch('/api/data?range=hour');
+                return await resp.json();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        const TREND_ARROW_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h17M13 5l7 7-7 7"/></svg>';
+
+        // Up / flat / down arrow from the slope over the past hour; empty if there's no recent data.
+        function hourTrendArrow(points) {
+            if (!points || isStale(points)) return '';
+            const tr = trendOf(points);
+            if (!tr) return '';
+            const dir = Math.abs(tr.rate) < TREND_STEADY_RATE ? 'flat' : (tr.rate > 0 ? 'up' : 'down');
+            const title = (tr.change >= 0 ? '+' : '−') + Math.abs(tr.change).toFixed(1) +
+                '° over the last ' + Math.max(1, Math.round(tr.spanMin)) + ' min';
+            return `<span class="trend-arrow ${dir}" title="${title}">${TREND_ARROW_SVG}</span>`;
+        }
+
+        // Rising / falling banner, shown only when one sensor is selected and it isn't holding steady.
+        function renderSensorTrend(hourData) {
+            const card = document.getElementById('sensorTrend');
+            const name = currentSensor && currentSensor !== '__favorites__' ? currentSensor : null;
+            const tempPts = name && hourData && hourData.temperature ? hourData.temperature[name] : null;
+            const tr = trendOf(tempPts, BANNER_WINDOW_SEC);
+            if (!tr || isStale(tempPts)) { card.style.display = 'none'; return; }
+
+            const mag = Math.abs(tr.rate);
+            if (mag < TREND_STEADY_RATE) { card.style.display = 'none'; return; }
+            const fast = mag >= TREND_FAST_RATE;
+            let cls, label;
+            if (tr.rate > 0) {
+                cls = 'rising';  label = fast ? 'Rising Fast' : 'Rising';
+            } else {
+                cls = 'falling'; label = fast ? 'Falling Fast' : 'Falling';
+            }
+            card.className = 'sensor-trend ' + cls;
+            card.style.display = 'flex';
+            document.getElementById('stArrow').innerHTML = TREND_ARROW_SVG;
+            document.getElementById('stLabel').textContent = name + ' ' + label;
+
+            const sign = tr.rate > 0 ? '+' : '−';
+            document.getElementById('stSub').textContent =
+                sign + mag.toFixed(1) + '°F/hr · ' + sign + Math.abs(tr.change).toFixed(1) +
+                '° over the last ' + Math.max(1, Math.round(tr.spanMin)) + ' min';
+
+            document.getElementById('stTemp').textContent = tr.value.toFixed(1) + '°';
+            const humPts = hourData.humidity ? hourData.humidity[name] : null;
+            document.getElementById('stHum').textContent =
+                humPts && humPts.length ? humPts[humPts.length - 1].v.toFixed(0) + '% RH' : '';
+        }
+
+        function renderCurrentReadings(tempData, humData, hourTempData) {
             const rows = allSensors
                 .map(name => {
                     const tPts = tempData[name];
                     const hPts = humData[name];
                     const temp = tPts && tPts.length > 0 ? tPts[tPts.length - 1].v : null;
                     const hum  = hPts && hPts.length > 0 ? hPts[hPts.length - 1].v : null;
-                    return { name, temp, hum };
+                    const arrow = hourTrendArrow(hourTempData && hourTempData[name]);
+                    return { name, temp, hum, arrow };
                 })
                 .filter(r => r.temp !== null)
                 .sort((a, b) => b.temp - a.temp);
 
             const html = rows.map(r => {
-                const color = sensorColorMap[r.name] || '#4A9EFF';
+                const color = sensorColorMap[r.name] || COLORS[0];
                 const humStr = r.hum !== null ? r.hum.toFixed(0) + '%' : '';
-                return `<div class="current-sensor-row">
+                const attrName = r.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+                return `<div class="current-sensor-row" data-sensor="${attrName}" title="Show ${attrName} graph">
                     <span class="current-dot" style="background:${color}"></span>
                     <span class="current-sensor-name" title="${r.name}">${r.name}</span>
                     <span class="current-sensor-hum">${humStr}</span>
-                    <span class="current-sensor-temp">${r.temp.toFixed(1)}&deg;</span>
+                    <span class="current-sensor-temp">${r.arrow}${r.temp.toFixed(1)}&deg;</span>
                 </div>`;
             }).join('');
 
@@ -1008,6 +1194,82 @@ enum WebDashboardHTML {
             if (c1) c1.innerHTML = html;
             const c2 = document.getElementById('fpCurrentReadings');
             if (c2) c2.innerHTML = html;
+        }
+
+        // ── Low battery alert ─────────────────────────────
+        const LOW_BATTERY_PCT = 15; // matches the HomeKit low-battery threshold
+
+        async function loadBatteryAlert() {
+            const card = document.getElementById('batteryAlert');
+            try {
+                const resp = await fetch('/api/battery');
+                const j = await resp.json();
+                const low = j.sensors
+                    .filter(s => s.battery < LOW_BATTERY_PCT)
+                    .sort((a, b) => a.battery - b.battery);
+                if (low.length === 0) { card.style.display = 'none'; return; }
+                document.getElementById('batteryAlertTitle').textContent =
+                    low.length === 1 ? 'Replace Battery' : 'Replace ' + low.length + ' Batteries';
+                document.getElementById('batteryAlertList').textContent =
+                    low.map(s => s.name + ' (' + s.battery + '%)').join(' · ');
+                card.style.display = 'flex';
+            } catch (e) {
+                console.error('Failed to load battery levels:', e);
+            }
+        }
+
+        // ── Outside weather ───────────────────────────────
+        // Open-Meteo (free, no key) for conditions; location from the browser's
+        // public IP via ipwho.is, cached for a day.
+        const OUTSIDE_REFRESH_MS = 10 * 60 * 1000;
+        const LOCATION_CACHE_MS = 24 * 60 * 60 * 1000;
+
+        async function outsideLocation() {
+            try {
+                const cached = JSON.parse(localStorage.getItem('bleOutsideLoc') || 'null');
+                if (cached && Date.now() - cached.at < LOCATION_CACHE_MS) return cached;
+            } catch (e) { /* refetch */ }
+            const resp = await fetch('https://ipwho.is/');
+            const j = await resp.json();
+            if (typeof j.latitude !== 'number') throw new Error('No location');
+            const loc = { lat: j.latitude, lon: j.longitude, at: Date.now() };
+            try { localStorage.setItem('bleOutsideLoc', JSON.stringify(loc)); } catch (e) {}
+            return loc;
+        }
+
+        async function loadOutside() {
+            let html, dpHtml = '';
+            try {
+                const loc = await outsideLocation();
+                const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon +
+                    '&current=temperature_2m,relative_humidity_2m,dew_point_2m' +
+                    '&temperature_unit=fahrenheit';
+                const w = await (await fetch(url)).json();
+                const c = w.current;
+                const row = (label, value) => `<div class="dp-row">
+                    <span class="dp-label">${label}</span>
+                    <span class="dp-value">${value}</span>
+                </div>`;
+                // Spacer keeps "Outside" aligned with the room names beside their color bars.
+                html = `<div class="dp-row">
+                    <span class="current-dot"></span>
+                    <span class="dp-label">Outside</span>
+                    <span class="current-sensor-hum">${c.relative_humidity_2m.toFixed(0)}%</span>
+                    <span class="dp-value">${c.temperature_2m.toFixed(1)}&deg;</span>
+                </div>`;
+                dpHtml = row('Outside', c.dew_point_2m.toFixed(1) + '&deg;');
+            } catch (e) {
+                console.error('Failed to load outside weather:', e);
+                html = '';
+            }
+            ['currentOutside', 'fpCurrentOutside'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = html;
+            });
+            ['dewpointOutside', 'fpDewpointOutside'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = dpHtml;
+            });
         }
 
         // Dew point via Magnus formula; inputs in °F / %, output in °F
@@ -1084,7 +1346,7 @@ enum WebDashboardHTML {
             }
 
             const html = rows.length === 0
-                ? '<div style="font-size:11px;color:rgba(255,255,255,0.3)">No data — add favorites &amp; ensure Attic sensor is active.</div>'
+                ? '<div class="muted-note">No data — add favorites &amp; ensure Attic sensor is active.</div>'
                 : rows.join('');
             if (container) container.innerHTML = html;
             if (fpContainer) fpContainer.innerHTML = html;
@@ -1143,7 +1405,7 @@ enum WebDashboardHTML {
                 const pos = fpPositions[name];
                 if (!pos) return;
 
-                const color = sensorColorMap[name] || '#4A9EFF';
+                const color = sensorColorMap[name] || COLORS[0];
                 const r = latestReadings[name] || {};
 
                 const pin = document.createElement('div');
@@ -1280,7 +1542,7 @@ enum WebDashboardHTML {
 
             chips.innerHTML = '';
             unplaced.forEach(name => {
-                const color = sensorColorMap[name] || '#4A9EFF';
+                const color = sensorColorMap[name] || COLORS[0];
                 const chip = document.createElement('div');
                 chip.className = 'fp-chip' + (fpSelectedSensor === name ? ' selected' : '');
                 chip.innerHTML = `<span class="fp-chip-dot" style="background:${color}"></span>${name}`;
@@ -1382,6 +1644,8 @@ enum WebDashboardHTML {
             await loadData();
             renderFloorPlan();
             setInterval(loadData, 60000);
+            loadOutside();
+            setInterval(loadOutside, OUTSIDE_REFRESH_MS);
         })();
         </script>
     </body>

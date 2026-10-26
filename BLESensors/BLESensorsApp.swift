@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 
 @main
 struct BLESensorsApp: App {
@@ -15,7 +16,7 @@ struct BLESensorsApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem?
     var statusMenu: NSMenu?
     var panel: NSPanel?
@@ -37,9 +38,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Hide dock icon
         NSApp.setActivationPolicy(.accessory)
 
+        registerLoginItemOnFirstLaunch()
+
         // Start web server if previously enabled
         if UserDefaults.standard.bool(forKey: "webServerEnabled") {
-            webServer = WebServer(database: store.database)
+            webServer = WebServer(database: store.database, store: store)
             webServer?.start()
         }
 
@@ -57,12 +60,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(withTitle: "Graph All…", action: #selector(openAllSensorsGraph), keyEquivalent: "")
         let webItem = NSMenuItem(title: webServerMenuTitle, action: #selector(toggleWebServer), keyEquivalent: "")
         menu.addItem(webItem)
+        menu.addItem(withTitle: "Open at Login", action: #selector(toggleOpenAtLogin), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Reset HomeKit…", action: #selector(resetHomeKit), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit BLE Thermo", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.delegate = self
         statusItem?.menu = nil
         self.statusMenu = menu
 
@@ -130,7 +135,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             UserDefaults.standard.set(false, forKey: "webServerEnabled")
             print("[Web] Server stopped")
         } else {
-            webServer = WebServer(database: store.database)
+            webServer = WebServer(database: store.database, store: store)
             webServer?.start()
             UserDefaults.standard.set(true, forKey: "webServerEnabled")
         }
@@ -140,6 +145,40 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }) {
             item.title = webServerMenuTitle
         }
+    }
+
+    // MARK: - Open at login
+
+    /// Registers as a login item once, on the first launch after install. Later launches
+    /// leave it alone so turning it off (menu or System Settings) sticks.
+    private func registerLoginItemOnFirstLaunch() {
+        let key = "didRegisterLoginItem"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        do {
+            try SMAppService.mainApp.register()
+            print("[Login] Registered to open at login")
+        } catch {
+            print("[Login] Failed to register login item: \(error)")
+        }
+        UserDefaults.standard.set(true, forKey: key)
+    }
+
+    @objc func toggleOpenAtLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            print("[Login] Failed to change login item: \(error)")
+        }
+    }
+
+    // Refresh the checkmark each time the menu opens; the user can also change it in System Settings.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.items.first { $0.action == #selector(toggleOpenAtLogin) }?.state =
+            SMAppService.mainApp.status == .enabled ? .on : .off
     }
 
     @objc func resetHomeKit() {
